@@ -1,0 +1,9 @@
+{
+  // Sample file. Make a copy and fix the settings for the DB
+  // Do NOT commit the copy to github, because it'll have a password in it
+  "database": "somedatabase",
+  "user": "user",
+  "host": "database.com",
+  "port": 5432,
+  "password": "password"
+}
