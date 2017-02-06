@@ -36,7 +36,6 @@ class NewsSpider(scrapy.Spider):
                 else:
                     fakesites.add(link)
                 yield scrapy.Request(url="http://" + link, callback=self.parsenewssite)
-                return
 
         # The following code all just goes to the next page of realorsatire.com
         match = re.match(r'^.*/page/([0-9]+)/$', response.url)  # Find the page number in the URL
