@@ -32,9 +32,11 @@ class NewsSpider(scrapy.Spider):
 
                 # TODO: Use database instead of in-memory sets
                 if valid:
-                    realsites.add(link)
+                    print("Added " + link + " to realsites")
+                    realsites.add(link.replace("www.", ""))
                 else:
-                    fakesites.add(link)
+                    print("Added " + link + " to fakesites")
+                    fakesites.add(link.replace("www.", ""))
                 yield scrapy.Request(url="http://" + link, callback=self.parsenewssite)
 
         # The following code all just goes to the next page of realorsatire.com
@@ -59,9 +61,10 @@ class NewsSpider(scrapy.Spider):
         if re.match(r'.*?((?:[a-z0-9_]+)(?:-[a-z0-9_]+)+)/?$', uri.path, flags=re.IGNORECASE):
             # TODO: Find contents of article (inside <p> tags), determine if it is long enough to be considered an
             #  actual article, then yield it. (Along with other data, like the domain and whatnot)
+            valid = (domain.replace("www.", "") in realsites)
             yield {
                 'url': response.url,
-                'valid': domain in realsites
+                'valid': valid
             }
 
         # Find all links on the page that go to the same URL that we're currently on
