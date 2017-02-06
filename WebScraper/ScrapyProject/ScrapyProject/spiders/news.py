@@ -29,11 +29,14 @@ class NewsSpider(scrapy.Spider):
                 print("Never mind, " + link + " is hard to pin down.")
             else:
                 valid = valid[0].lower() == "real"
+
+                # TODO: Use database instead of in-memory sets
                 if valid:
                     realsites.add(link)
                 else:
                     fakesites.add(link)
                 yield scrapy.Request(url="http://" + link, callback=self.parsenewssite)
+                return
 
         # The following code all just goes to the next page of realorsatire.com
         match = re.match(r'^.*/page/([0-9]+)/$', response.url)  # Find the page number in the URL
@@ -59,18 +62,19 @@ class NewsSpider(scrapy.Spider):
             #  actual article, then yield it. (Along with other data, like the domain and whatnot)
             yield {
                 'url': response.url,
-                # 'valid': domain in realsites
+                'valid': domain in realsites
             }
 
         # Find all links on the page that go to the same URL that we're currently on
         # (We don't want to follow links to ads or other sites or whatever)
         links = response.css("a[href*='" + uri.netloc + "']::attr(href)").extract()
         for link in links:
+            # print("About to follow link: " + link)
             newuri = urlparse(link)
             # Specifically remove anything in the url that's a parameter or something like that, for reasons
             # (Many links have a bunch of parameters used by the site for tracking, so it makes it difficult
             # to keep track of which URLs have already been visited. So we remove all the parameters)
-            url = "{uri.scheme}://{uri.netloc}{uri.path}".format(uri=uri)
+            url = "{uri.scheme}://{uri.netloc}{uri.path}".format(uri=newuri)
 
             # TODO: Maybe store the visited URLs in the database instead of in memory?
             if url not in visited and domain == newuri.netloc:
