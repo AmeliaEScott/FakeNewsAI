@@ -23,6 +23,7 @@ urlstoignore = [
     re.compile(r'/page/[0-9]+/?$', flags=re.IGNORECASE),  # URLs that are just pages containing many articles
     re.compile(r'(\.png|\.gif|\.jpe?g)$', flags=re.IGNORECASE),  # Images (.png, .gif, .jpeg, .jpg)
     re.compile(r'/author/|/people/', flags=re.IGNORECASE),  # Pages that are just bios of authors
+    re.compile(r'/watch/', flags=re.IGNORECASE),  # Pages that are just videos
 ]
 
 
