@@ -5,7 +5,6 @@ import os
 from urllib.parse import urlparse
 import json
 import psycopg2
-from psycopg2 import pool
 
 
 dir = os.path.dirname(__file__)
@@ -17,12 +16,34 @@ connection = psycopg2.connect(database=config["database"], host=config["host"], 
                               password=config["password"], port=config["port"])
 connection.autocommit = True
 
+urlstoignore = [
+    re.compile(r'/tags?/', flags=re.IGNORECASE),  # All URLs with "/tag/" or "/tags/" in them
+    re.compile(r'/categor(y|ies)/', flags=re.IGNORECASE),  # All URLs with /category/ or /categories/
+    re.compile(r'/comments?-page-[0-9]+/?$', flags=re.IGNORECASE),  # URLs that have "comment-page-<number>"
+    re.compile(r'/page/[0-9]+/?$', flags=re.IGNORECASE),  # URLs that are just pages containing many articles
+    re.compile(r'(\.png|\.gif|\.jpe?g)$', flags=re.IGNORECASE),  # Images (.png, .gif, .jpeg, .jpg)
+    re.compile(r'/author/|/people/', flags=re.IGNORECASE),  # Pages that are just bios of authors
+]
+
+
 class NewsSpider(scrapy.Spider):
 
     name = "news"
 
     def removewww(self, url):
         return re.sub(r'^((?:https?://)?)(ww(?:w|[0-9]+)\.)?(.*?)$', r'\1\3', url, flags=re.IGNORECASE)
+
+    """
+    Returns True if this URL is (probably) an article
+    Returns False if this URL is on the list of URLs to ignore
+    (Like /tag/, or images)
+    """
+    @staticmethod
+    def isarticle(url):
+        for regex in urlstoignore:
+            if regex.search(url) is not None:
+                return False
+        return re.match(r'.*?/((?:[a-z0-9_]+)(?:-[a-z0-9_]+)*)/?$', url, flags=re.IGNORECASE) is not None
 
     def start_requests(self):
         with connection.cursor() as cursor:
@@ -46,17 +67,21 @@ class NewsSpider(scrapy.Spider):
 
         with connection.cursor() as cursor:
 
-            cursor.execute("INSERT INTO visited (url, domain) VALUES (%s, %s)",
-                           (cleanedurl, self.removewww(currentdomain)))
-
             # If this URL looks like an article...
-            if re.match(r'.*?((?:[a-z0-9_]+)(?:-[a-z0-9_]+)*)/?$', currenturi.path, flags=re.IGNORECASE):
+            if self.isarticle(cleanedurl):
+                # articles_visited is a child of visited, so everything inserted into articles_visited
+                # is also in visited.
+                cursor.execute("INSERT INTO articles_visited (url, domain) VALUES (%s, %s)",
+                               (cleanedurl, self.removewww(currentdomain)))
                 # TODO: Find contents of article (inside <p> tags), determine if it is long enough to be considered
                 # an actual article, then yield it. (Along with other data, like the domain and whatnot)
                 yield {
                     'url': response.url,
                     'valid': response.meta.get("valid")
                 }
+            else:
+                cursor.execute("INSERT INTO visited (url, domain) VALUES (%s, %s)",
+                               (cleanedurl, self.removewww(currentdomain)))
 
             # connection.commit()
 
