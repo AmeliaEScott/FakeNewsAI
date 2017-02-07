@@ -1,0 +1,3 @@
+[submodule "WebScraper/FakeNewsList"]
+	path = WebScraper/FakeNewsList
+	url = https://github.com/marktron/fakenews.git
