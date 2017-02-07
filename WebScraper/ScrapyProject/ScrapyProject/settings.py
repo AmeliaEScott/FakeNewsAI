@@ -14,6 +14,10 @@ BOT_NAME = 'ScrapyProject'
 SPIDER_MODULES = ['ScrapyProject.spiders']
 NEWSPIDER_MODULE = 'ScrapyProject.spiders'
 
+DNS_TIMEOUT = 15
+DOWNLOAD_TIMEOUT = 30
+
+
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'ScrapyProject (+http://www.yourdomain.com)'
