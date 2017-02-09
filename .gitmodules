@@ -1,6 +1,3 @@
 [submodule "WebScraper/FakeNewsList"]
 	path = WebScraper/FakeNewsList
 	url = https://github.com/marktron/fakenews.git
-[submodule "WebScraper/python-boilerpipe"]
-	path = WebScraper/python-boilerpipe
-	url = https://github.com/misja/python-boilerpipe.git
