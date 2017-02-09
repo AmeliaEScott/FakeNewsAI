@@ -5,8 +5,8 @@ import os
 from urllib.parse import urlparse
 import json
 import psycopg2
-from newspaper import Article
 
+targetarticlesperdomain = 1000  # Number of articles to try and get for each domain
 
 dir = os.path.dirname(__file__)
 configpath = os.path.join(dir, "../../../dbsettings.json")
@@ -32,6 +32,7 @@ urlstoignore = [
 # URLs that should not be followed by the crawler
 urlstonotfollow = [
     re.compile(r'(\.png|\.gif|\.jpe?g)$', flags=re.IGNORECASE),  # Images
+    re.compile(r'\.pdf$', flags=re.IGNORECASE),  # PDFs
 ]
 
 
@@ -63,7 +64,6 @@ class NewsSpider(scrapy.Spider):
 
     def start_requests(self):
         with connection.cursor() as cursor:
-            cursor = connection.cursor()
             cursor.execute("SELECT url, valid FROM sources WHERE valid = 'false';")
 
             for url in cursor.fetchmany(10000):
@@ -116,7 +116,9 @@ class NewsSpider(scrapy.Spider):
                 cursor.execute("INSERT INTO visited (url, domain) VALUES (%s, %s)",
                                (cleanedurl, self.removewww(currentdomain)))
 
-            # connection.commit()
+            cursor.execute("SELECT count(1) FROM visited WHERE domain=%s;", (domainWithoutWWW,))
+            count = cursor.fetchone()[0]
+            priority = targetarticlesperdomain - int(count)
 
             # Find all links on the page that go to the same URL that we're currently on
             # (We don't want to follow links to ads or other sites or whatever)
@@ -133,4 +135,4 @@ class NewsSpider(scrapy.Spider):
                 cursor.execute("SELECT count(1) FROM visited WHERE url=%s", (self.removewww(newuri.netloc), ))
                 alreadyvisited = cursor.fetchone()[0] == '1'
                 if not alreadyvisited and currentdomain == newuri.netloc and self.shouldfollow(url):
-                    yield scrapy.Request(url=url, callback=self.parse, meta=response.meta)
+                    yield scrapy.Request(url=url, callback=self.parse, meta=response.meta, priority=priority)
