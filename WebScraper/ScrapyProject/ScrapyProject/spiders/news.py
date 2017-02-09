@@ -17,6 +17,7 @@ connection = psycopg2.connect(database=config["database"], host=config["host"], 
                               password=config["password"], port=config["port"])
 connection.autocommit = True
 
+# URLs that are probably not articles
 urlstoignore = [
     re.compile(r'/tags?/', flags=re.IGNORECASE),  # All URLs with "/tag/" or "/tags/" in them
     re.compile(r'/categor(y|ies)/', flags=re.IGNORECASE),  # All URLs with /category/ or /categories/
@@ -26,6 +27,11 @@ urlstoignore = [
     re.compile(r'(\.png|\.gif|\.jpe?g)$', flags=re.IGNORECASE),  # Images (.png, .gif, .jpeg, .jpg)
     re.compile(r'/author/|/people/', flags=re.IGNORECASE),  # Pages that are just bios of authors
     re.compile(r'/watch/', flags=re.IGNORECASE),  # Pages that are just videos
+]
+
+# URLs that should not be followed by the crawler
+urlstonotfollow = [
+    re.compile(r'(\.png|\.gif|\.jpe?g)$', flags=re.IGNORECASE),  # Images
 ]
 
 
@@ -47,6 +53,13 @@ class NewsSpider(scrapy.Spider):
             if regex.search(url) is not None:
                 return False
         return re.match(r'.*?/((?:[a-z0-9_]+)(?:-[a-z0-9_]+)+)/?$', url, flags=re.IGNORECASE) is not None
+
+    @staticmethod
+    def shouldfollow(url):
+        for regex in urlstonotfollow:
+            if regex.search(url) is not None:
+                return False
+        return True
 
     def start_requests(self):
         with connection.cursor() as cursor:
@@ -119,5 +132,5 @@ class NewsSpider(scrapy.Spider):
                 # TODO: Maybe store the visited URLs in the database instead of in memory?
                 cursor.execute("SELECT count(1) FROM visited WHERE url=%s", (self.removewww(newuri.netloc), ))
                 alreadyvisited = cursor.fetchone()[0] == '1'
-                if not alreadyvisited and currentdomain == newuri.netloc:
+                if not alreadyvisited and currentdomain == newuri.netloc and self.shouldfollow(url):
                     yield scrapy.Request(url=url, callback=self.parse, meta=response.meta)
