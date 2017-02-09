@@ -5,6 +5,7 @@ import os
 from urllib.parse import urlparse
 import json
 import psycopg2
+from newspaper import Article
 
 
 dir = os.path.dirname(__file__)
@@ -19,6 +20,7 @@ connection.autocommit = True
 urlstoignore = [
     re.compile(r'/tags?/', flags=re.IGNORECASE),  # All URLs with "/tag/" or "/tags/" in them
     re.compile(r'/categor(y|ies)/', flags=re.IGNORECASE),  # All URLs with /category/ or /categories/
+    re.compile(r'/topics?/', flags=re.IGNORECASE),
     re.compile(r'/comments?-page-[0-9]+/?$', flags=re.IGNORECASE),  # URLs that have "comment-page-<number>"
     re.compile(r'/page/[0-9]+/?$', flags=re.IGNORECASE),  # URLs that are just pages containing many articles
     re.compile(r'(\.png|\.gif|\.jpe?g)$', flags=re.IGNORECASE),  # Images (.png, .gif, .jpeg, .jpg)
@@ -49,7 +51,7 @@ class NewsSpider(scrapy.Spider):
     def start_requests(self):
         with connection.cursor() as cursor:
             cursor = connection.cursor()
-            cursor.execute("SELECT url, valid FROM sources;")
+            cursor.execute("SELECT url, valid FROM sources WHERE valid = 'false';")
 
             for url in cursor.fetchmany(10000):
                 yield scrapy.Request(url="http://" + url[0], callback=self.parse,
@@ -59,6 +61,8 @@ class NewsSpider(scrapy.Spider):
 
         currenturi = urlparse(response.url)
         currentdomain = currenturi.netloc  # The domain name of the current page
+
+        domainWithoutWWW = self.removewww(currentdomain)
 
         cleanedurl = "{uri.scheme}://{uri.netloc}{uri.path}".format(uri=currenturi)
 
@@ -73,13 +77,24 @@ class NewsSpider(scrapy.Spider):
                 # articles_visited is a child of visited, so everything inserted into articles_visited
                 # is also in visited.
                 cursor.execute("INSERT INTO articles_visited (url, domain) VALUES (%s, %s)",
-                               (cleanedurl, self.removewww(currentdomain)))
+                               (cleanedurl, domainWithoutWWW))
                 # TODO: Find contents of article (inside <p> tags), determine if it is long enough to be considered
                 # an actual article, then yield it. (Along with other data, like the domain and whatnot)
-                yield {
-                    'url': response.url,
-                    'valid': response.meta.get("valid")
-                }
+
+                article = Article(cleanedurl)          # Initializes the Article, but doesn't do anything
+                article.download(html=response.text)   # Doesn't actually redownload the page if you give it html
+                article.parse()                        # Must call parse() before extracting text
+
+                if article.authors is None or len(article.authors) < 1:
+                    author = 0
+                else:
+                    author = article.authors[0]
+
+                cursor.execute("INSERT INTO articles (batch, url, content, domain, title, author, html) "
+                               "VALUES (%s, %s, %s, %s, %s, %s, %s)", ("ScrapverV2", cleanedurl, article.text,
+                                                                       domainWithoutWWW, article.title, author,
+                                                                       response.text))
+
             else:
                 cursor.execute("INSERT INTO visited (url, domain) VALUES (%s, %s)",
                                (cleanedurl, self.removewww(currentdomain)))
