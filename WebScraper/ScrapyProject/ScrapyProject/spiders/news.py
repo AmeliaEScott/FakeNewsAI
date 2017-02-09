@@ -76,24 +76,28 @@ class NewsSpider(scrapy.Spider):
             if self.isarticle(cleanedurl):
                 # articles_visited is a child of visited, so everything inserted into articles_visited
                 # is also in visited.
-                cursor.execute("INSERT INTO articles_visited (url, domain) VALUES (%s, %s)",
-                               (cleanedurl, domainWithoutWWW))
+                cursor.execute("INSERT INTO articles_visited (url, domain, html) VALUES (%s, %s, %s)",
+                               (cleanedurl, domainWithoutWWW, response.text))
                 # TODO: Find contents of article (inside <p> tags), determine if it is long enough to be considered
                 # an actual article, then yield it. (Along with other data, like the domain and whatnot)
 
-                article = Article(cleanedurl)          # Initializes the Article, but doesn't do anything
-                article.download(html=response.text)   # Doesn't actually redownload the page if you give it html
-                article.parse()                        # Must call parse() before extracting text
-
-                if article.authors is None or len(article.authors) < 1:
-                    author = 0
-                else:
-                    author = article.authors[0]
-
-                cursor.execute("INSERT INTO articles (batch, url, content, domain, title, author, html) "
-                               "VALUES (%s, %s, %s, %s, %s, %s, %s)", ("ScrapverV2", cleanedurl, article.text,
-                                                                       domainWithoutWWW, article.title, author,
-                                                                       response.text))
+                """
+                This code is REALLY slow and a bit buggy, so it might be better to just store the HTML,
+                and parse it later.
+                """
+                # article = Article(cleanedurl)          # Initializes the Article, but doesn't do anything
+                # article.download(html=response.text)   # Doesn't actually redownload the page if you give it html
+                # article.parse()                        # Must call parse() before extracting text
+                #
+                # if article.authors is None or len(article.authors) < 1:
+                #     author = 0
+                # else:
+                #     author = article.authors[0]
+                #
+                # cursor.execute("INSERT INTO articles (batch, url, content, domain, title, author, html) "
+                #                "VALUES (%s, %s, %s, %s, %s, %s, %s)", ("ScrapverV2", cleanedurl, article.text,
+                #                                                        domainWithoutWWW, article.title, author,
+                #                                                        response.text))
 
             else:
                 cursor.execute("INSERT INTO visited (url, domain) VALUES (%s, %s)",
