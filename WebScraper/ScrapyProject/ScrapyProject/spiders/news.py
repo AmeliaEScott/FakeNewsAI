@@ -64,11 +64,13 @@ class NewsSpider(scrapy.Spider):
 
     def start_requests(self):
         with connection.cursor() as cursor:
-            cursor.execute("SELECT url, valid FROM sources WHERE valid = 'false';")
+            cursor.execute("SELECT url, valid FROM sources WHERE valid = 'false' "
+                           "AND url NOT IN (SELECT url FROM visited);")
 
             for url in cursor.fetchmany(10000):
                 yield scrapy.Request(url="http://" + url[0], callback=self.parse,
-                                     meta={'domain': url[0], 'valid': url[1].lower() == 'true'})
+                                     meta={'domain': url[0], 'valid': url[1].lower() == 'true'},
+                                     priority=targetarticlesperdomain + 1)
 
     def parse(self, response):
 
