@@ -135,6 +135,6 @@ class NewsSpider(scrapy.Spider):
 
                 # TODO: Maybe store the visited URLs in the database instead of in memory?
                 cursor.execute("SELECT count(1) FROM visited WHERE url=%s", (self.removewww(newuri.netloc), ))
-                alreadyvisited = cursor.fetchone()[0] == '1'
+                alreadyvisited = cursor.fetchone()[0] == 1
                 if not alreadyvisited and currentdomain == newuri.netloc and self.shouldfollow(url):
                     yield scrapy.Request(url=url, callback=self.parse, meta=response.meta, priority=priority)
