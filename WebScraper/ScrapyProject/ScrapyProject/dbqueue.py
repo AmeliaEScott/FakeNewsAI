@@ -54,7 +54,7 @@ class DBQueue:
     def __len__(self):
         # Returns an estimate of the queue size, since count(*) is SUPER slow
         self.cursor.execute("SELECT reltuples AS approximate_row_count FROM pg_class WHERE relname = 'queue'")
-        result = self.cursor.fetchone()[0]
+        result = int(self.cursor.fetchone()[0])
         # if result < 1000:
         #     self.cursor.execute("SELECT count(*) FROM queue")
         #     return self.cursor.fetchone()[0]
