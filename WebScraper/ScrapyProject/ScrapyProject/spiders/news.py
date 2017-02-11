@@ -5,11 +5,12 @@ import os
 from urllib.parse import urlparse
 import json
 import psycopg2
+import logging
 
 targetarticlesperdomain = 1000  # Number of articles to try and get for each domain
 
-dir = os.path.dirname(__file__)
-configpath = os.path.join(dir, "../../../dbsettings.json")
+scriptdir = os.path.dirname(__file__)
+configpath = os.path.join(scriptdir, "../../../dbsettings.json")
 with open(configpath) as configFile:
     config = json.load(configFile)
 
@@ -40,7 +41,8 @@ class NewsSpider(scrapy.Spider):
 
     name = "news"
 
-    def removewww(self, url):
+    @staticmethod
+    def removewww(url):
         return re.sub(r'^((?:https?://)?)(ww(?:w|[0-9]+)\.)?(.*?)$', r'\1\3', url, flags=re.IGNORECASE)
 
     """
@@ -77,7 +79,7 @@ class NewsSpider(scrapy.Spider):
         currenturi = urlparse(response.url)
         currentdomain = currenturi.netloc  # The domain name of the current page
 
-        domainWithoutWWW = self.removewww(currentdomain)
+        domainwithoutwww = self.removewww(currentdomain)
 
         cleanedurl = "{uri.scheme}://{uri.netloc}{uri.path}".format(uri=currenturi)
 
@@ -91,8 +93,12 @@ class NewsSpider(scrapy.Spider):
             if self.isarticle(cleanedurl):
                 # articles_visited is a child of visited, so everything inserted into articles_visited
                 # is also in visited.
-                cursor.execute("INSERT INTO articles_visited (url, domain, html) VALUES (%s, %s, %s)",
-                               (cleanedurl, domainWithoutWWW, response.text))
+                try:
+                    cursor.execute("INSERT INTO articles_visited (url, domain, html) VALUES (%s, %s, %s)",
+                                   (cleanedurl, domainwithoutwww, response.text))
+                except psycopg2.IntegrityError:
+                    logging.warning("Error inserting \"%s\" into articles_visited: Already there.", cleanedurl)
+                    return
                 # TODO: Find contents of article (inside <p> tags), determine if it is long enough to be considered
                 # an actual article, then yield it. (Along with other data, like the domain and whatnot)
 
@@ -115,10 +121,13 @@ class NewsSpider(scrapy.Spider):
                 #                                                        response.text))
 
             else:
-                cursor.execute("INSERT INTO visited (url, domain) VALUES (%s, %s)",
-                               (cleanedurl, self.removewww(currentdomain)))
+                try:
+                    cursor.execute("INSERT INTO visited (url, domain) VALUES (%s, %s)",
+                                   (cleanedurl, self.removewww(currentdomain)))
+                except psycopg2.IntegrityError:
+                    logging.warning("Error inserting \"%s\" into visited: Already there.", cleanedurl)
 
-            cursor.execute("SELECT count(1) FROM visited WHERE domain=%s;", (domainWithoutWWW,))
+            cursor.execute("SELECT count(1) FROM visited WHERE domain=%s;", (domainwithoutwww,))
             count = cursor.fetchone()[0]
             priority = targetarticlesperdomain - int(count)
 
@@ -131,10 +140,11 @@ class NewsSpider(scrapy.Spider):
                 # Specifically remove anything in the url that's a parameter or something like that, for reasons
                 # (Many links have a bunch of parameters used by the site for tracking, so it makes it difficult
                 # to keep track of which URLs have already been visited. So we remove all the parameters)
-                url = "{uri.scheme}://{uri.netloc}{uri.path}".format(uri=newuri)
+                newurl = "{uri.scheme}://{uri.netloc}{uri.path}".format(uri=newuri)
 
-                # TODO: Maybe store the visited URLs in the database instead of in memory?
-                cursor.execute("SELECT count(1) FROM visited WHERE url=%s", (self.removewww(newuri.netloc), ))
-                alreadyvisited = cursor.fetchone()[0] == 1
-                if not alreadyvisited and currentdomain == newuri.netloc and self.shouldfollow(url):
-                    yield scrapy.Request(url=url, callback=self.parse, meta=response.meta, priority=priority)
+                cursor.execute("select 1 from queue where url=%s union select 1 from visited where url=%s",
+                               (newurl, newurl))
+                result = cursor.fetchone()
+                unvisited = result is None or len(result) == 0 or result[0] != 1
+                if unvisited and currentdomain == newuri.netloc and self.shouldfollow(newurl):
+                    yield scrapy.Request(url=newurl, callback=self.parse, meta=response.meta, priority=priority)
