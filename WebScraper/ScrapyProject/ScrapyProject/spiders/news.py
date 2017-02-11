@@ -55,7 +55,7 @@ class NewsSpider(scrapy.Spider):
         for regex in urlstoignore:
             if regex.search(url) is not None:
                 return False
-        return re.match(r'.*?/((?:[a-z0-9_]+)(?:-[a-z0-9_]+)+)/?$', url, flags=re.IGNORECASE) is not None
+        return re.match(r'.*?/((?:[a-z0-9_]+)(?:-[a-z0-9_]+)*)/?', url, flags=re.IGNORECASE) is not None
 
     @staticmethod
     def shouldfollow(url):
