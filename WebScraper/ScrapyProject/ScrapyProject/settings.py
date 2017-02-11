@@ -30,7 +30,7 @@ SCHEDULER_MEMORY_QUEUE = 'ScrapyProject.dbqueue.DBQueue'
 ROBOTSTXT_OBEY = False
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
-CONCURRENT_REQUESTS = 100
+CONCURRENT_REQUESTS = 32
 
 REACTOR_THREADPOOL_MAXSIZE = 20
 
