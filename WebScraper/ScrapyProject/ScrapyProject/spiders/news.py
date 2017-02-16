@@ -28,6 +28,7 @@ urlstoignore = [
     re.compile(r'(\.png|\.gif|\.jpe?g)$', flags=re.IGNORECASE),  # Images (.png, .gif, .jpeg, .jpg)
     re.compile(r'/author/|/people/', flags=re.IGNORECASE),  # Pages that are just bios of authors
     re.compile(r'/watch/', flags=re.IGNORECASE),  # Pages that are just videos
+    re.compile(r'/blogs?/', flags=re.IGNORECASE),  # Blogs on news sites are apparently a thing
 ]
 
 # URLs that should not be followed by the crawler
@@ -66,7 +67,7 @@ class NewsSpider(scrapy.Spider):
 
     def start_requests(self):
         with connection.cursor() as cursor:
-            cursor.execute("SELECT url, valid FROM sources WHERE valid = 'false' "
+            cursor.execute("SELECT url, valid FROM sources WHERE valid = 'true' "
                            "AND url NOT IN (SELECT url FROM visited);")
 
             for url in cursor.fetchmany(10000):

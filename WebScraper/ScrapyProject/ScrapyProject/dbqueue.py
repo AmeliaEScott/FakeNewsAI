@@ -11,6 +11,7 @@ with open(configpath) as configFile:
 
 connection = psycopg2.connect(database=config["database"], host=config["host"], user=config["user"],
                               password=config["password"], port=config["port"])
+cursor = connection.cursor()
 connection.autocommit = True
 
 
@@ -18,7 +19,7 @@ class DBQueue:
 
     def __init__(self):
         # print("INITIALIZING SPECIAL QUEUE...")
-        self.cursor = connection.cursor()
+        self.cursor = cursor
         self.size = 0
 
     def push(self, item):
@@ -29,6 +30,7 @@ class DBQueue:
         # exists = self.cursor.fetchone()[0]
 
         try:
+            logging.debug("Executing DB query in push")
             self.cursor.execute("INSERT INTO queue (priority, url, meta) VALUES (%s, %s, %s)",
                                 (priority, item.url, json.dumps(item.meta)))
             self.size += 1
@@ -36,6 +38,7 @@ class DBQueue:
             logging.warning("Tried inserting \"%s\" into queue, but it already exists...", item.url)
 
     def pop(self):
+        logging.debug("Executing DB query in pop")
         self.cursor.execute("DELETE FROM queue "
                             "WHERE url = (select url from queue order by priority desc, id asc limit 1) "
                             "RETURNING id, priority, url, meta")
@@ -49,9 +52,12 @@ class DBQueue:
             return None
 
     def close(self):
-        self.cursor.close()
+        # self.cursor.close()
+        logging.debug("Tried closing DB queue for some reason")
+        pass
 
     def __len__(self):
+        logging.debug("Called len on queue")
         # Returns an estimate of the queue size, since count(*) is SUPER slow
         self.cursor.execute("SELECT reltuples AS approximate_row_count FROM pg_class WHERE relname = 'queue'")
         result = int(self.cursor.fetchone()[0])
