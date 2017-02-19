@@ -38,9 +38,7 @@ LOG_LEVEL = "INFO"
 
 RETRY_ENABLED = False
 
-REDIRECT_ENABLED = False
-
-
+REDIRECT_ENABLED = True
 
 # Configure a delay for requests for the same website (default: 0)
 # See http://scrapy.readthedocs.org/en/latest/topics/settings.html#download-delay
