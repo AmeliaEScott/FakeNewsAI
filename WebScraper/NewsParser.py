@@ -1,26 +1,37 @@
 
-from newspaper import Article
 from newspaper import fulltext
 from newspaper import nlp
 from newspaper.configuration import Configuration
 from newspaper.extractors import ContentExtractor
 import psycopg2
-import requests
 import json
+import signal
+import sys
+
+batchsize = 10
 
 with open("dbsettings.json") as configFile:
     config = json.load(configFile)
 connection = psycopg2.connect(database=config["database"], host=config["host"], user=config["user"],
                               password=config["password"], port=config["port"])
+connection.autocommit = True
+
+keepgoing = True
+
 
 def OnArticleProcessError(url):
     print('Error occured when parsing url ' + url)
 
-def StoreToDatabase(url, title, authors, text, keywords, summary):
+
+def StoreToDatabase(url, domain, title, authors, text, keywords, summary, cursor):
     #Code to insert data to database
     print('Added :\n\t' + title + ' \n\t ' + str(authors) + ' \n\t ' + text[:100] + ' \n\t ' + str(keywords) + ' \n\t ' + summary)
+    cursor.execute("INSERT INTO articles (batch, url, content, domain, title, authors, keywords, summary) "
+                   "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                   ("Test1", url, text, domain, title, authors, keywords, summary))
 
-def ProcessArticle(urlStr, htmlStr):
+
+def ProcessArticle(urlStr, domain, htmlStr, cursor):
     config = Configuration()
     extractor = ContentExtractor(config)
     clean_doc = config.get_parser().fromstring(htmlStr)
@@ -38,9 +49,31 @@ def ProcessArticle(urlStr, htmlStr):
     if len(text) == 0 or len(authors) == 0:
         OnArticleProcessError(urlStr)
     else:
-        StoreToDatabase(urlStr, title, authors, text, keyws, summary)
+        StoreToDatabase(urlStr, domain, title, authors, text, keyws, summary, cursor)
 
-#test code for parsing html.
-urlStr = 'https://www.nytimes.com/2017/02/18/us/politics/trump-candidates-top-posts.html'
-testhtmlStr = requests.get(urlStr).text
-ProcessArticle(urlStr, testhtmlStr)
+
+def controlc(*args, **kwargs):
+    global keepgoing
+    keepgoing = False
+
+
+query = ("UPDATE articles_visited a "
+         "SET    processed = TRUE "
+         "FROM  ( "
+         "    SELECT url "
+         "    FROM   articles_visited "
+         "    WHERE  processed = FALSE "
+         "    LIMIT  %s "
+         "    FOR UPDATE "
+         ") sub "
+         "WHERE  a.url = sub.url "
+         "RETURNING a.url, a.domain, a.html;")
+
+signal.signal(signal.SIGINT, controlc)
+
+with connection.cursor() as cursor:
+    cursor.execute(query, (batchsize, ))
+    results = cursor.fetchmany(batchsize)
+    while results is not None and keepgoing:
+        for row in results:
+            ProcessArticle(row[0], row[1], row[2], cursor)
