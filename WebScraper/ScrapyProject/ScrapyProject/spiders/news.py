@@ -44,17 +44,24 @@ urlstonotfollow = [
     re.compile(r'(\.png|\.gif|\.jpe?g)$', flags=re.IGNORECASE),  # Images
     re.compile(r'\.pdf$', flags=re.IGNORECASE),  # PDFs
     # re.compile(r'/opinions?/', flags=re.IGNORECASE) # There's a LOT of opinion pages on CNN
-    re.compile(r'.*?bbc.com/[^n](?:[^e][^w][^s])?'),  # Ignore everything that's not in the news category
+    # re.compile(r'.*?bbc.com/[^n](?:[^e][^w][^s])?'),  # Ignore everything that's not in the news category
+]
+
+# URLs that SHOULD be followed by the crawler
+# The crawler only follows URLs that match at least one regex in this list, and
+# match NONE of the regexes in urlstonotfollow
+urlstofollow = [
+    re.compile(r'.*?foxnews\.com/(?:us|politics)/', flags=re.IGNORECASE),
 ]
 
 # Regex that a URL should match to be considered an article
 # This one is for CNN. It matches articles from 2014-2017, in the categories 'us' or 'politics'
 # articleregex = re.compile(r'.*?cnn.com/201[4-7]/[0-9]{2}/[0-9]{2}/(us|politics)/[a-z0-9_\-]*/index\.html',
 #                           flags=re.IGNORECASE)
-articleregex = re.compile(r'.*?bbc.com/news/world-')
+articleregex = re.compile(r'.*?foxnews\.com/(?:us|politics)/201[4-7]/[0-9]{2}/[0-9]{2}/', flags=re.IGNORECASE)
 
-starturl = 'http://www.bbc.com'
-startdomain = 'bbc.com'
+starturl = 'http://www.foxnews.com'
+startdomain = 'foxnews.com'
 
 
 class NewsSpider(scrapy.Spider):
@@ -79,9 +86,18 @@ class NewsSpider(scrapy.Spider):
 
     @staticmethod
     def shouldfollow(url):
+        shouldfollow = False
+        for regex in urlstofollow:
+            if regex.search(url) is not None:
+                shouldfollow = True
+                break
+        if not shouldfollow:
+            # print("Not following " + url)
+            return False
         for regex in urlstonotfollow:
             if regex.search(url) is not None:
                 return False
+        # print("Yes following " + url)
         return True
 
     def start_requests(self):
@@ -100,7 +116,7 @@ class NewsSpider(scrapy.Spider):
 
     def parse(self, response):
 
-        print("Parsing " + response.url)
+        # print("Parsing " + response.url)
 
         currenturi = urlparse(response.url)
         currentdomain = currenturi.netloc  # The domain name of the current page
@@ -152,6 +168,7 @@ class NewsSpider(scrapy.Spider):
                                    (cleanedurl, self.removewww(currentdomain)))
                 except psycopg2.IntegrityError:
                     logging.warning("Error inserting \"%s\" into visited: Already there.", cleanedurl)
+                    return
 
             cursor.execute("SELECT count(1) FROM visited WHERE domain=%s;", (domainwithoutwww,))
             count = cursor.fetchone()[0]
