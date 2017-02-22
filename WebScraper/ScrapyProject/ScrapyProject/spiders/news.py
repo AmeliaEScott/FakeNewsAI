@@ -186,8 +186,9 @@ class NewsSpider(scrapy.Spider):
                 # Specifically remove anything in the url that's a parameter or something like that, for reasons
                 # (Many links have a bunch of parameters used by the site for tracking, so it makes it difficult
                 # to keep track of which URLs have already been visited. So we remove all the parameters)
+                if newuri.netloc is None:
+                    newuri.netloc = 'http'
                 newurl = "{uri.scheme}://{uri.netloc}{uri.path}".format(uri=newuri)
-
 
                 cursor.execute("select 1 from queue where url=%s union select 1 from visited where url=%s",
                                (newurl, newurl))
