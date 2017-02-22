@@ -181,6 +181,11 @@ class NewsSpider(scrapy.Spider):
                 if currentdomain not in link:
                     # print("Adding domain to " + link)
                     link = response.urljoin(link)
+                if not link.startswith("http"):
+                    if link.startswith("://"):
+                        link = "http" + link
+                    else:
+                        link = "http://" + link
                 # print("About to follow link: " + link)
                 newuri = urlparse(link)
                 # Specifically remove anything in the url that's a parameter or something like that, for reasons
