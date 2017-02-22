@@ -2,7 +2,7 @@
 import scrapy
 import re
 import os
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 import json
 import psycopg2
 import logging
@@ -17,6 +17,14 @@ with open(configpath) as configFile:
 connection = psycopg2.connect(database=config["database"], host=config["host"], user=config["user"],
                               password=config["password"], port=config["port"])
 connection.autocommit = True
+
+"""
+To change this cralwer to another website, just change the following:
+ - urlstoignore: List of regexes for URLs that should not be counted as articles
+ - urlsnottofollow: URLs that don't lead to normal web pages (E.g., images, PDFs)
+ - articleregex: Regex to match URLs of pages that are probably articles
+ - starturl: URL at which to start crawling
+"""
 
 # URLs that are probably not articles
 urlstoignore = [
@@ -35,7 +43,16 @@ urlstoignore = [
 urlstonotfollow = [
     re.compile(r'(\.png|\.gif|\.jpe?g)$', flags=re.IGNORECASE),  # Images
     re.compile(r'\.pdf$', flags=re.IGNORECASE),  # PDFs
+    re.compile(r'/opinions?/', flags=re.IGNORECASE) # There's a LOT of opinion pages on CNN
 ]
+
+# Regex that a URL should match to be considered an article
+# This one is for CNN. It matches articles from 2014-2017, in the categories 'us' or 'politics'
+articleregex = re.compile(r'.*?cnn.com/201[4-7]/[0-9]{2}/[0-9]{2}/(us|politics)/[a-z0-9_\-]*/index\.html',
+                          flags=re.IGNORECASE)
+
+starturl = 'http://www.cnn.com'
+startdomain = 'cnn.com'
 
 
 class NewsSpider(scrapy.Spider):
@@ -56,7 +73,7 @@ class NewsSpider(scrapy.Spider):
         for regex in urlstoignore:
             if regex.search(url) is not None:
                 return False
-        return re.match(r'.*?/((?:[a-z0-9_]+)(?:-[a-z0-9_]+)*)/?', url, flags=re.IGNORECASE) is not None
+        return articleregex.match(url) is not None
 
     @staticmethod
     def shouldfollow(url):
@@ -66,19 +83,22 @@ class NewsSpider(scrapy.Spider):
         return True
 
     def start_requests(self):
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT url, valid FROM sources WHERE valid = 'true'")
-
-            result = cursor.fetchmany(10000)
-            for url in result:
-                print(url[0])
-            for url in result:
-                logging.info("Yielding start url %s" % url[0])
-                yield scrapy.Request(url="http://" + url[0], callback=self.parse,
-                                     meta={'domain': url[0], 'valid': url[1].lower() == 'true'},
-                                     priority=targetarticlesperdomain + 1)
+        yield scrapy.Request(url=starturl, callback=self.parse, meta={'domain': startdomain})
+        # with connection.cursor() as cursor:
+        #     cursor.execute("SELECT url, valid FROM sources WHERE valid = 'true'")
+        #
+        #     result = cursor.fetchmany(10000)
+        #     for url in result:
+        #         print(url[0])
+        #     for url in result:
+        #         logging.info("Yielding start url %s" % url[0])
+        #         yield scrapy.Request(url="http://" + url[0], callback=self.parse,
+        #                              meta={'domain': url[0], 'valid': url[1].lower() == 'true'},
+        #                              priority=targetarticlesperdomain + 1)
 
     def parse(self, response):
+
+        print("Parsing " + response.url)
 
         currenturi = urlparse(response.url)
         currentdomain = currenturi.netloc  # The domain name of the current page
@@ -139,12 +159,16 @@ class NewsSpider(scrapy.Spider):
             # (We don't want to follow links to ads or other sites or whatever)
             links = response.css("a::attr(href)").extract()
             for link in links:
+                if currentdomain not in link:
+                    # print("Adding domain to " + link)
+                    link = response.urljoin(link)
                 # print("About to follow link: " + link)
                 newuri = urlparse(link)
                 # Specifically remove anything in the url that's a parameter or something like that, for reasons
                 # (Many links have a bunch of parameters used by the site for tracking, so it makes it difficult
                 # to keep track of which URLs have already been visited. So we remove all the parameters)
                 newurl = "{uri.scheme}://{uri.netloc}{uri.path}".format(uri=newuri)
+
 
                 cursor.execute("select 1 from queue where url=%s union select 1 from visited where url=%s",
                                (newurl, newurl))

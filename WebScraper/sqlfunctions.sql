@@ -20,8 +20,8 @@ LIMIT 20;
 
 -- Gives the total count of real or fake articles
 SELECT count(*)
-FROM articles_visited
-    JOIN sources ON articles_visited.domain=sources.url
+FROM visited v
+    JOIN sources ON v.domain=sources.url
 WHERE valid='true'; -- Change to 'false' for fake news
 
 
