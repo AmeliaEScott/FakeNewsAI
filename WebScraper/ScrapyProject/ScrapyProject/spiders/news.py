@@ -53,7 +53,7 @@ urlstonotfollow = [
 # match NONE of the regexes in urlstonotfollow
 urlstofollow = [
     # re.compile(r'.*?foxnews\.com/(?:us|politics)', flags=re.IGNORECASE),
-    re.compile(r'.*?washingtonpost.com/(?:news|politics|world)', flags=re.IGNORECASE)
+    re.compile(r'.*?usatoday.com.*?(?:washington|politics)', flags=re.IGNORECASE)
 ]
 
 # Regex that a URL should match to be considered an article
@@ -61,10 +61,10 @@ urlstofollow = [
 # articleregex = re.compile(r'.*?cnn.com/201[4-7]/[0-9]{2}/[0-9]{2}/(us|politics)/[a-z0-9_\-]*/index\.html',
 #                           flags=re.IGNORECASE)
 # articleregex = re.compile(r'.*?foxnews\.com/(?:us|politics)/201[4-7]/[0-9]{2}/[0-9]{2}/', flags=re.IGNORECASE)
-articleregex = re.compile(r'.*?washingtonpost.com/news.*?201[4-7]/[0-9]{2}/[0-9]{2}.*', flags=re.IGNORECASE)
+articleregex = re.compile(r'.*?usatoday.com/story/news/politics/201[4-7]/[0-9]{2}/[0-9]{2}', flags=re.IGNORECASE)
 
-starturl = 'http://www.washingtonpost.com'
-startdomain = 'washingtonpost.com'
+starturl = 'http://www.usatoday.com'
+startdomain = 'usatoday.com'
 
 
 class NewsSpider(scrapy.Spider):
