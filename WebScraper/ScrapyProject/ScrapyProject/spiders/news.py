@@ -45,24 +45,26 @@ urlstonotfollow = [
     re.compile(r'\.pdf$', flags=re.IGNORECASE),  # PDFs
     # re.compile(r'/opinions?/', flags=re.IGNORECASE) # There's a LOT of opinion pages on CNN
     # re.compile(r'.*?bbc.com/[^n](?:[^e][^w][^s])?'),  # Ignore everything that's not in the news category
-    re.compile(r'.*?foxnews.com/opinion', flags=re.IGNORECASE)
+    # re.compile(r'.*?foxnews.com/opinion', flags=re.IGNORECASE)
 ]
 
 # URLs that SHOULD be followed by the crawler
 # The crawler only follows URLs that match at least one regex in this list, and
 # match NONE of the regexes in urlstonotfollow
 urlstofollow = [
-    re.compile(r'.*?foxnews\.com/(?:us|politics)', flags=re.IGNORECASE),
+    # re.compile(r'.*?foxnews\.com/(?:us|politics)', flags=re.IGNORECASE),
+    re.compile(r'.*?nbcnews.com/(storyline|news|politics)', flags=re.IGNORECASE)
 ]
 
 # Regex that a URL should match to be considered an article
 # This one is for CNN. It matches articles from 2014-2017, in the categories 'us' or 'politics'
 # articleregex = re.compile(r'.*?cnn.com/201[4-7]/[0-9]{2}/[0-9]{2}/(us|politics)/[a-z0-9_\-]*/index\.html',
 #                           flags=re.IGNORECASE)
-articleregex = re.compile(r'.*?foxnews\.com/(?:us|politics)/201[4-7]/[0-9]{2}/[0-9]{2}/', flags=re.IGNORECASE)
+# articleregex = re.compile(r'.*?foxnews\.com/(?:us|politics)/201[4-7]/[0-9]{2}/[0-9]{2}/', flags=re.IGNORECASE)
+articleregex = re.compile(r'.*?nbcnews.com/(storyline|news|politics).*?[0-9]{5,7}', flags=re.IGNORECASE)
 
-starturl = 'http://www.foxnews.com'
-startdomain = 'foxnews.com'
+starturl = 'http://www.nbcnews.com'
+startdomain = 'nbcnews.com'
 
 
 class NewsSpider(scrapy.Spider):
