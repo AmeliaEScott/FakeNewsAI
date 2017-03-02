@@ -8,8 +8,9 @@ Each of these libraries is used by at least one of these scripts, so it's probab
 a bad idea to just install them all using pip.
 
  - Tensorflow
-   - I had trouble installing Tensorflow using pip, so I had to do it this way:
+   - I had trouble installing Tensorflow using pip, so I had to do it this way, but it only works on Mac OSX:
    - `pip install --upgrade https://storage.googleapis.com/tensorflow/mac/cpu/tensorflow-1.0.0-py3-none-any.whl`
+   - You can find the URLs for different versions on the [Tensorflow website](https://www.tensorflow.org/install/)
  - gensim
  - psycopg2
  
