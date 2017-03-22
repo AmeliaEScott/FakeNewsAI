@@ -45,7 +45,7 @@ def getbatches():
             yield result
             batch = []
 
-networkinput = tf.placeholder(tf.float32, [BATCH_SIZE, WORD_VECTOR_SIZE * WORDS_INPUT_AT_ONCE])
+networkinput = tf.placeholder(tf.float32, [BATCH_SIZE, WORD_VECTOR_SIZE * WORDS_INPUT_AT_ONCE, 1])
 initial_state = tf.placeholder(tf.float32, [BATCH_SIZE, STATE_SIZE])
 
 cell = tf.contrib.rnn.BasicLSTMCell([BATCH_SIZE, STATE_SIZE])
