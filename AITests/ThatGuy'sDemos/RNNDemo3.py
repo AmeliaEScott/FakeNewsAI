@@ -1,6 +1,6 @@
 """
 This is not our code. It was provided by Erik Hallstrom.
-https://medium.com/@erikhallstrm/tensorflow-rnn-api-2bb31821b185#.8bxn8zuq0
+https://medium.com/@erikhallstrm/using-the-tensorflow-lstm-api-3-7-5f2b97ca6b73#.umiyh51ey
 
 With fixes for Tensorflow 1.0 by Kristian Baumann.
 https://medium.com/@krisbaumann/three-quick-syntax-changes-to-make-the-code-work-with-tensorflow-1-0-229547eca7c4#.7kdzt8j1q
@@ -35,7 +35,9 @@ def generateData():
 batchX_placeholder = tf.placeholder(tf.float32, [batch_size, truncated_backprop_length])
 batchY_placeholder = tf.placeholder(tf.int32, [batch_size, truncated_backprop_length])
 
-init_state = tf.placeholder(tf.float32, [batch_size, state_size])
+cell_state = tf.placeholder(tf.float32, [batch_size, state_size])
+hidden_state = tf.placeholder(tf.float32, [batch_size, state_size])
+init_state = tf.contrib.rnn.LSTMStateTuple(cell_state, hidden_state)
 
 W2 = tf.Variable(np.random.rand(state_size, num_classes), dtype=tf.float32)
 b2 = tf.Variable(np.zeros((1,num_classes)), dtype=tf.float32)
@@ -46,8 +48,9 @@ inputs_series = tf.split(batchX_placeholder, truncated_backprop_length, axis=1)
 labels_series = tf.unstack(batchY_placeholder, axis=1)
 
 # Forward passes
-cell = tf.contrib.rnn.BasicRNNCell(state_size)
-states_series, current_state = tf.contrib.rnn.static_rnn(cell, inputs_series, initial_state=init_state)
+
+cell = tf.contrib.rnn.BasicLSTMCell(state_size, state_is_tuple=True)
+states_series, current_state = tf.contrib.rnn.static_rnn(cell, inputs_series, init_state)
 
 logits_series = [tf.matmul(state, W2) + b2 for state in states_series] #Broadcasted addition
 predictions_series = [tf.nn.softmax(logits) for logits in logits_series]
@@ -87,7 +90,8 @@ with tf.Session() as sess:
 
     for epoch_idx in range(num_epochs):
         x,y = generateData()
-        _current_state = np.zeros((batch_size, state_size))
+        _current_cell_state = np.zeros((batch_size, state_size))
+        _current_hidden_state = np.zeros((batch_size, state_size))
 
         print("New data, epoch", epoch_idx)
 
@@ -101,10 +105,14 @@ with tf.Session() as sess:
             _total_loss, _train_step, _current_state, _predictions_series = sess.run(
                 [total_loss, train_step, current_state, predictions_series],
                 feed_dict={
-                    batchX_placeholder:batchX,
-                    batchY_placeholder:batchY,
-                    init_state:_current_state
+                    batchX_placeholder: batchX,
+                    batchY_placeholder: batchY,
+                    cell_state: _current_cell_state,
+                    hidden_state: _current_hidden_state
+
                 })
+
+            _current_cell_state, _current_hidden_state = _current_state
 
             loss_list.append(_total_loss)
 
