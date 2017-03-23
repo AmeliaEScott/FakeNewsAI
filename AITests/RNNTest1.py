@@ -16,38 +16,6 @@ WORDS_INPUT_AT_ONCE = 1
 # Size of state to remember between iterations within one article
 STATE_SIZE = 3000
 
-truncated_backprop_length = 5
-
-# The next 8 lines are just opening the database connection
-dir = os.path.dirname(__file__)
-configpath = os.path.join(dir, "../WebScraper/dbsettings.json")
-with open(configpath) as configFile:
-    config = json.load(configFile)
-
-connection = psycopg2.connect(database=config["database"], host=config["host"], user=config["user"],
-                              password=config["password"], port=config["port"])
-cursor = connection.cursor()
-
-
-def getbatches():
-    """
-    Yields tuples of (content, valid) for each article, in random order
-    :return: TODO: Describe this in better detail
-    """
-    cursor.execute("SELECT id FROM articles WHERE trainingset ORDER BY random()")
-    ids = cursor.fetchmany(200000)
-    # print(repr(ids))
-    batch = []
-    for id in ids:
-        batch.append(id)
-        if len(batch) >= BATCH_SIZE:
-            cursor.execute("SELECT articles.content, sources.valid FROM articles JOIN sources "
-                           "ON articles.domain=sources.url WHERE id = ANY(%s)", (batch, ))
-            result = cursor.fetchmany(BATCH_SIZE)
-            yield result
-            batch = []
-
-maxtime = tf.placeholder(tf.int32, [BATCH_SIZE])
 
 # This represents the inputs to the network.
 # The first number is the batch size: Because TensorFlow will process an entire batch in parallel,
@@ -110,7 +78,13 @@ cell = tf.contrib.rnn.BasicLSTMCell(STATE_SIZE)
 # Remember that second dimension, TIME_STEPS, which was "None" before? Well hopefully, TensorFlow is smart enough
 # to fill that in with an actual number by the time we need it.
 # TODO: I don't actually know if this is true. I should find out
+# The second value, state, is simply a tensor representing the final state after the network has run
+# through all of its inputs. It is a rank-2 Tensor (Read: 2D matrix) of size [BATCH_SIZE, STATE_SIZE].
+# Remember how TensorFlow processes everything in a batch at once? Well, this state needs to have a value
+# for everything in the batch, thus why the output is this size.
 outputs, state = tf.nn.dynamic_rnn(cell=cell, inputs=networkinput, initial_state=initial_state_tuple)
+
+
 
 
 
