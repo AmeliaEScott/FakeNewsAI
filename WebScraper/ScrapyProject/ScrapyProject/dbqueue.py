@@ -5,7 +5,7 @@ import scrapy
 import logging
 
 dir = os.path.dirname(__file__)
-configpath = os.path.join(dir, "../../dbsettings.json")
+configpath = os.path.join(dir, "../../../dbsettings.json")
 with open(configpath) as configFile:
     config = json.load(configFile)
 

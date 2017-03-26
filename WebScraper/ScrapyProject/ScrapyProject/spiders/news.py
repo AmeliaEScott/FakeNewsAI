@@ -10,7 +10,7 @@ import logging
 targetarticlesperdomain = 1000  # Number of articles to try and get for each domain
 
 scriptdir = os.path.dirname(__file__)
-configpath = os.path.join(scriptdir, "../../../dbsettings.json")
+configpath = os.path.join(scriptdir, "../../../../dbsettings.json")
 with open(configpath) as configFile:
     config = json.load(configFile)
 

@@ -96,6 +96,8 @@ ENV/
 .idea/
 
 WebScraper/dbsettings.json
+AITests/dbsettings.json
+dbsettings.json
 .DS_Store
 
 # Make sure to not commit this 1.6GB file

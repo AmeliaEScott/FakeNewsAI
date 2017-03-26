@@ -6,7 +6,7 @@ import json
 
 done = False
 pageNumber = 1
-with open("dbsettings.json") as configFile:
+with open("../dbsettings.json") as configFile:
     config = json.load(configFile)
 connection = psycopg2.connect(database=config["database"], host=config["host"], user=config["user"],
                               password=config["password"], port=config["port"])

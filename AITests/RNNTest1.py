@@ -1,12 +1,34 @@
-import tensorflow as tf
-import numpy as np
-from AITests.DataBatching import getbatches
+import sys
+
+try:
+    import tensorflow as tf
+    import numpy as np
+except ImportError:
+    print("You forgot to install Tensorflow and Numpy.")
+    sys.exit()
+
 import os
-from gensim.models import KeyedVectors
+
+try:
+    from gensim.models import KeyedVectors
+except ImportError:
+    print("You forgot to install gensim. Run pip install gensim")
+    sys.exit()
+
+try:
+    from AITests.DataBatching import getbatches
+except (ImportError, SystemError):
+    try:
+        from .AITests.DataBatching import getbatches
+    except (ImportError, SystemError):
+        print("Could not load data batching module.")
+        print("Make sure you run this from the root directory of the repository,")
+        print("and use \"python -m AITests.RNNTest1\"")
+        sys.exit()
 
 # Size of batch in number of articles
 # Batch size of 1 means each article is its own batch
-BATCH_SIZE = 20
+BATCH_SIZE = 100
 
 # Size of a vector for an individual word
 WORD_VECTOR_SIZE = 300
@@ -20,7 +42,7 @@ STATE_SIZE = 3000
 # The learning rate is a constant for how quickly it should learn.
 # Too high, and it could overshoot and oscillate around wildly. Too low,
 # and it'll just take forever. I have no idea how to find the right value.
-LEARNING_RATE = 0.3
+LEARNING_RATE = 1.0
 
 
 def buildgraph():
@@ -100,7 +122,7 @@ def buildgraph():
     rnn_outputs, finalstate = tf.nn.dynamic_rnn(cell=cell, inputs=networkinput, initial_state=initial_state_tuple)
 
     # The function get_shape() could be helpful for debugging
-    print(rnn_outputs.get_shape())
+    # print(rnn_outputs.get_shape())
 
     # Variables differ from placeholders because they can be trained by Tensorflow's training functions.
     # Weights and Biases are, conveniently, two things that need to be trained, so we use variables for those.
@@ -226,7 +248,12 @@ print("Loading language model...")
 dir = os.path.dirname(__file__)
 modelpath = os.path.join(dir, "GoogleNews-vectors-negative300.bin")
 # This step takes a VERY LONG TIME (1-2 minutes) and LOTS of memory (5 GB), so only do it once in any program!
-model = KeyedVectors.load_word2vec_format(modelpath, binary=True)
+try:
+    model = KeyedVectors.load_word2vec_format(modelpath, binary=True)
+except FileNotFoundError:
+    print("Could not load the language file. Make sure you've downloaded it to "
+          "AITests/GoogleNews-vectors-negative300.bin. See the README for where to download this from.")
+    sys.exit()
 print("Done loading language model")
 
 with tf.Session() as session:
@@ -239,7 +266,6 @@ with tf.Session() as session:
     epochNum = 1
     while True:
         print("Starting epoch %d" % epochNum)
-        epochNum += 1
 
         # These two are for averaging the loss over the epoch
         lossTotal = 0
@@ -264,3 +290,4 @@ with tf.Session() as session:
             numBatches += 1
 
         print("Finished epoch %d. Loss average: %f" % (epochNum, (lossTotal / numBatches)))
+        epochNum += 1

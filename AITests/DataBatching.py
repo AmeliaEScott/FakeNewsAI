@@ -1,5 +1,6 @@
 import psycopg2
 import os
+import sys
 import json
 import random
 
@@ -8,13 +9,21 @@ This file handles separating data into batches in a somewhat random order.
 """
 
 dir = os.path.dirname(__file__)
-configpath = os.path.join(dir, "../WebScraper/dbsettings.json")
-with open(configpath) as configFile:
-    config = json.load(configFile)
+configpath = os.path.join(dir, "../dbsettings.json")
+try:
+    with open(configpath) as configFile:
+        config = json.load(configFile)
+except FileNotFoundError:
+    print("Didn't find dbsettings.json in %s" % configpath)
+    sys.exit()
 
-connection = psycopg2.connect(database=config["database"], host=config["host"], user=config["user"],
-                              password=config["password"], port=config["port"])
-cursor = connection.cursor()
+try:
+    connection = psycopg2.connect(database=config["database"], host=config["host"], user=config["user"],
+                                  password=config["password"], port=config["port"])
+    cursor = connection.cursor()
+except psycopg2.OperationalError:
+    print("Error connecting to database. Check that all of the information in your dbsettings.json is correct.")
+    sys.exit()
 
 # getbatches will only return articles with more than this many words
 NUM_WORDS_THRESHOLD = 100
@@ -56,18 +65,24 @@ def getbatches(batchsize):
     batch = []
     # TODO:  Actually randomize the order of the batches.
     # Right now, it's roughly in order from least words to most
+    batchnum = 0
     for id in results:
         batch.append(id)
         if len(batch) >= batchsize:
+            batchnum += 1
             # This is the part where it actually retrieves the relevant content from the database
             cursor.execute("SELECT an.content, s.valid FROM articles_normalized an JOIN sources s ON an.source=s.url "
                            "WHERE id = ANY(%s)", (batch,))
             batch = []
             # "yield" is what makes this function a generator, so you can iterate over it using "for ... in"
             yield cursor.fetchmany(batchsize)
+            if batchnum > 5:
+                return
 
 
 if __name__ == "__main__":
+    print("Running this code the way you're doing it now isn't very useful. This is just demo code.")
+
     # Here's just some sample code for how to use this function.
     # Currently, I just have it set up to show me how fast it goes through the dataset.
     # (Spoiler alert: Not very fast)
