@@ -66,12 +66,14 @@ def getbatches(batchsize):
             # "yield" is what makes this function a generator, so you can iterate over it using "for ... in"
             yield cursor.fetchmany(batchsize)
 
-# Here's just some sample code for how to use this function.
-# Currently, I just have it set up to show me how fast it goes through the dataset.
-# (Spoiler alert: Not very fast)
-# TODO: Look into downloading all of the data as, like, a CSV or something, to limit number of database calls
-count = 0
-for batch in getbatches(100):
-    count += 1
-    if count % 10 == 0:
-        print(count)
+
+if __name__ == "__main__":
+    # Here's just some sample code for how to use this function.
+    # Currently, I just have it set up to show me how fast it goes through the dataset.
+    # (Spoiler alert: Not very fast)
+    # TODO: Look into downloading all of the data as, like, a CSV or something, to limit number of database calls
+    count = 0
+    for batch in getbatches(100):
+        count += 1
+        if count % 10 == 0:
+            print(count)

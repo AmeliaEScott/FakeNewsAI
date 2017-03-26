@@ -4,6 +4,11 @@ import json
 import re
 from gensim.models import KeyedVectors
 
+"""
+This script is just for taking in data and normalizing it.
+See the comments of normalize(text) for what this means.
+"""
+
 
 # The next 8 lines are just opening the database connection
 dir = os.path.dirname(__file__)
@@ -27,10 +32,12 @@ model = KeyedVectors.load_word2vec_format(modelpath, binary=True)
 BATCH_SIZE = 100
 
 # Number of total words an article must have to be considered an actual article
-WORD_COUNT_THRESHOLD = 200
+# (A value of 0 means to ignore this)
+WORD_COUNT_THRESHOLD = 0
 
 # The article must have less than this proportion of unknown words
-WORD_PROPORTION_THRESHOLD = 0.15
+# (A value of 1 basically means to ignore this)
+WORD_PROPORTION_THRESHOLD = 1
 
 
 def normalize(text):
@@ -75,8 +82,8 @@ def normalize(text):
 
 
 cursor.execute("SELECT id, content FROM articles WHERE id NOT IN (SELECT id FROM articles_normalized) "
-               "ORDER BY id LIMIT %s OFFSET %s",
-               (BATCH_SIZE, 0))
+               "ORDER BY id LIMIT %s",
+               (BATCH_SIZE, ))
 results = cursor.fetchmany(BATCH_SIZE)
 batchnumber = 1
 
@@ -84,16 +91,16 @@ while len(results) > 0:
 
     for result in results:
         numwords, numunknown, normaltext = normalize(result[1])
-        print("ID: %d, total words: %d, unknown words: %d" % (result[0], numwords, numunknown))
+        # print("ID: %d, total words: %d, unknown words: %d" % (result[0], numwords, numunknown))
         if numwords > WORD_COUNT_THRESHOLD and numunknown / numwords < WORD_PROPORTION_THRESHOLD:
             # print(normaltext)
             cursor.execute("INSERT INTO articles_normalized (id, content, num_words, unknown_words, training_set) "
                            "VALUES (%s, %s, %s, %s, %s)", (result[0], normaltext, numwords, numunknown, True))
         # print("\n")
-    print("Finished article number %d" % batchnumber * BATCH_SIZE)
+    print("Finished article number %d" % (batchnumber * BATCH_SIZE))
 
     cursor.execute("SELECT id, content FROM articles WHERE id NOT IN (SELECT id FROM articles_normalized) "
-                   "ORDER BY id LIMIT %s OFFSET %s",
-                   (BATCH_SIZE, batchnumber * BATCH_SIZE))
+                   "ORDER BY id LIMIT %s",
+                   (BATCH_SIZE, ))
     batchnumber += 1
     results = cursor.fetchmany(BATCH_SIZE)
