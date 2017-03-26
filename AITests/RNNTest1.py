@@ -6,7 +6,7 @@ from gensim.models import KeyedVectors
 
 # Size of batch in number of articles
 # Batch size of 1 means each article is its own batch
-BATCH_SIZE = 5
+BATCH_SIZE = 20
 
 # Size of a vector for an individual word
 WORD_VECTOR_SIZE = 300
@@ -182,12 +182,32 @@ def buildgraph():
 
 
 def getpaddedbatches(model):
+    """
+    This function takes the batches of data and shuffles them around to fit
+    the format needed by Tensorflow.
+    :param model: The language model to use to convert words to vectors
+    :return: Maxlength, inputs, outputs, mask.
+        Maxlength is the number of timesteps in this batch
+        Inputs are the inputs to the network
+        Outputs are the expected outputs from the network
+        Mask is the previously-discussed output mask for padded inputs
+    """
+
     for batch in getbatches(BATCH_SIZE):
+        # Max length is the number of words in the longest article
         maxlength = max([len(element[0].split(" ")) for element in batch])
+
+        # Inputs are the inputs to the network, in the shape specified by the input placeholder of the graph
+        # We default them to zeros, because that is our padding choice
         inputs = np.zeros(shape=(BATCH_SIZE, maxlength, WORD_VECTOR_SIZE), dtype=np.float32)
         # TODO: Deal with different values of WORDS_INPUT_AT_ONCE
+
         outputs = np.zeros(shape=(BATCH_SIZE, maxlength, 1), dtype=np.float32)
+
+        # We initialize the mask to zeros, then make it 1 whenever we find a word, so that at the end
+        # when we run out of words, its all zeros for the rest of the time steps
         mask = np.zeros(shape=(BATCH_SIZE, maxlength, 1), dtype=np.float32)
+
         for elementNum in range(0, BATCH_SIZE):
             element = batch[elementNum]
             words = element[0].split(" ")
@@ -210,15 +230,37 @@ model = KeyedVectors.load_word2vec_format(modelpath, binary=True)
 print("Done loading language model")
 
 with tf.Session() as session:
+    # The weights and biases for the final output layer are initialized randomly, but the internal
+    # weights and biases within the RNN are not. So we need to do this to initialize them.
+    # Presumably, once this network has been trained, we'll initialize these variables from a file.
     session.run(tf.global_variables_initializer())
+
+    # One epoch is one run through the entire dataset
     epochNum = 1
-    print("Starting epoch %d" % epochNum)
-    for timeSteps, inputBatch, outputBatch, mask in getpaddedbatches(model):
-        lossResult, trainStepResult = session.run([loss, train_step], feed_dict={
-            inputs: inputBatch,
-            outputs: outputBatch,
-            initial_state: np.zeros((BATCH_SIZE, STATE_SIZE)),
-            initial_hidden_state: np.zeros((BATCH_SIZE, STATE_SIZE)),
-            loss_mask: mask
-        })
-        print("Loss: %f" % lossResult)
+    while True:
+        print("Starting epoch %d" % epochNum)
+        epochNum += 1
+
+        # These two are for averaging the loss over the epoch
+        lossTotal = 0
+        numBatches = 0
+
+        for timeSteps, inputBatch, outputBatch, mask in getpaddedbatches(model):
+            # feed_dict is how we pass in values for all the placeholders
+            # This is the part of this code that takes all of the time and processor power.
+            # Even though the batching code is stupidly inefficient, it takes negligible time compared
+            # to the actual training, so let's not bother optimizing it.
+            lossResult, trainStepResult = session.run([loss, train_step], feed_dict={
+                inputs: inputBatch,
+                outputs: outputBatch,
+                initial_state: np.zeros((BATCH_SIZE, STATE_SIZE)),
+                initial_hidden_state: np.zeros((BATCH_SIZE, STATE_SIZE)),
+                loss_mask: mask
+            })
+            # Within one epoch, the loss will bounce around wildly, due to random fluctuations.
+            # So it will be more useful to just average the loss over the entire epoch
+            print("Loss: %f" % lossResult)
+            lossTotal += lossResult
+            numBatches += 1
+
+        print("Finished epoch %d. Loss average: %f" % (epochNum, (lossTotal / numBatches)))
