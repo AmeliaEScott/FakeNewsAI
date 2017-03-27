@@ -100,7 +100,7 @@ def buildtower(batchsize, networkinput, initial_state, initial_hidden_state, exp
             cell = tf.contrib.rnn.BasicLSTMCell(STATE_SIZE)
             rnn_outputs, finalstate = tf.nn.dynamic_rnn(cell=cell, inputs=networkinput,
                                                         initial_state=initial_state_tuple)
-            
+
     # Here is where this code differs from RNNTest1. We can't simply construct a new Variable, because
     # these variables must be shared between multiple different towers. This piece of code retrieves
     # Variables that already exist elsewhere in Tensorflow's memory.
@@ -208,7 +208,7 @@ def buildgraph():
                               initial_hidden_state=initial_hidden_state_split[i],
                               expected_outputs=expected_output_split[i], loss_mask=loss_mask_split[i])
             losses.append(loss)
-            gradients.append(optimizer.compute_gradients(loss))
+            gradients.append(optimizer.compute_gradients(loss, aggregation_method=tf.AggregationMethod.EXPERIMENTAL_TREE))
 
     # This assures that all the following code will run in the CPU, and not the GPU.
     # More specifically, any graph operation constructed in this "with" block will be run in the CPU
@@ -250,6 +250,7 @@ def getpaddedbatches(model):
         inputs = np.zeros(shape=(BATCH_SIZE, maxlength, WORD_VECTOR_SIZE), dtype=np.float32)
         # TODO: Deal with different values of WORDS_INPUT_AT_ONCE
 
+        print("Max length: %d" % maxlength)
         outputs = np.zeros(shape=(BATCH_SIZE, maxlength, 1), dtype=np.float32)
 
         # We initialize the mask to zeros, then make it 1 whenever we find a word, so that at the end
@@ -306,6 +307,8 @@ with tf.Session() as session:
         numBatches = 0
 
         for timeSteps, inputBatch, outputBatch, mask in getpaddedbatches(model):
+            print("Starting batch %d of epoch %d. Max time steps: %d" % (numBatches, epochNum, timeSteps))
+
             # feed_dict is how we pass in values for all the placeholders
             # This is the part of this code that takes all of the time and processor power.
             # Even though the batching code is stupidly inefficient, it takes negligible time compared
@@ -319,7 +322,7 @@ with tf.Session() as session:
             })
             # Within one epoch, the loss will bounce around wildly, due to random fluctuations.
             # So it will be more useful to just average the loss over the entire epoch
-            print("Loss: %f" % lossResult)
+            print("Finished batch. Loss: %f" % lossResult)
             lossTotal += lossResult
             numBatches += 1
 
