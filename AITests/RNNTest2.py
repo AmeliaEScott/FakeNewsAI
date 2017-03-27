@@ -89,14 +89,22 @@ def buildtower(batchsize, networkinput, initial_state, initial_hidden_state, exp
     #                                       name="initialHiddenStatePlaceholder")
     initial_state_tuple = tf.contrib.rnn.LSTMStateTuple(initial_state, initial_hidden_state)
 
+
+    # Create the actual RNN
+    try:
+        with tf.variable_scope(VARIABLE_SCOPE, reuse=True):
+            cell = tf.contrib.rnn.BasicLSTMCell(STATE_SIZE)
+            rnn_outputs, finalstate = tf.nn.dynamic_rnn(cell=cell, inputs=networkinput, initial_state=initial_state_tuple)
+    except ValueError:
+        with tf.variable_scope(VARIABLE_SCOPE, reuse=None):
+            cell = tf.contrib.rnn.BasicLSTMCell(STATE_SIZE)
+            rnn_outputs, finalstate = tf.nn.dynamic_rnn(cell=cell, inputs=networkinput,
+                                                        initial_state=initial_state_tuple)
+            
     # Here is where this code differs from RNNTest1. We can't simply construct a new Variable, because
     # these variables must be shared between multiple different towers. This piece of code retrieves
     # Variables that already exist elsewhere in Tensorflow's memory.
     with tf.variable_scope(VARIABLE_SCOPE, reuse=True):
-        # Create the actual RNN
-        cell = tf.contrib.rnn.BasicLSTMCell(STATE_SIZE)
-        rnn_outputs, finalstate = tf.nn.dynamic_rnn(cell=cell, inputs=networkinput, initial_state=initial_state_tuple)
-        
         weights = tf.get_variable(name=WEIGHTS_NAME, shape=[STATE_SIZE, 1], dtype=tf.float32)
         biases = tf.get_variable(name=BIASES_NAME, shape=[1], dtype=tf.float32)
 
