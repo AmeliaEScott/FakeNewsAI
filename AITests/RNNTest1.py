@@ -1,3 +1,9 @@
+"""
+This was our first pass at training the network.
+It works to some extent, but it does not utilize multiple GPUs.
+We are keeping it around because it serves as our personal Tensorflow reference
+"""
+
 import sys
 
 try:
@@ -42,6 +48,9 @@ WORDS_INPUT_AT_ONCE = 1
 
 # Size of state to remember between iterations within one article
 STATE_SIZE = 3000
+
+# Number of GPUs on the target machine. Can be 0
+NUM_GPUS = 8
 
 # The learning rate is a constant for how quickly it should learn.
 # Too high, and it could overshoot and oscillate around wildly. Too low,
