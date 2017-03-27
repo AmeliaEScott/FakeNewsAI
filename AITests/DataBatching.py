@@ -65,19 +65,18 @@ def getbatches(batchsize):
     batch = []
     # TODO:  Actually randomize the order of the batches.
     # Right now, it's roughly in order from least words to most
-    batchnum = 0
+
+    # batchnum = 0  # This was used in testing. No longer necessary, but I'm keeping it around for nostalgia's sake
     for id in results:
         batch.append(id)
         if len(batch) >= batchsize:
-            batchnum += 1
+            # batchnum += 1
             # This is the part where it actually retrieves the relevant content from the database
             cursor.execute("SELECT an.content, s.valid FROM articles_normalized an JOIN sources s ON an.source=s.url "
                            "WHERE id = ANY(%s)", (batch,))
             batch = []
             # "yield" is what makes this function a generator, so you can iterate over it using "for ... in"
             yield cursor.fetchmany(batchsize)
-            if batchnum > 5:
-                return
 
 
 if __name__ == "__main__":

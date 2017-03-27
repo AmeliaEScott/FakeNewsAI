@@ -300,9 +300,11 @@ with tf.Session() as session:
             print("Loss: %f" % lossResult)
             lossTotal += lossResult
             numBatches += 1
-            print("Saving variables...")
-            savepath = saver.save(session, save_path=VARIABLE_SAVE_FILE)
-            print("Saved variables to file %s" % savepath)
+
+            if numBatches % 100 == 0:
+                print("Saving variables...")
+                savepath = saver.save(session, save_path=VARIABLE_SAVE_FILE)
+                print("Saved variables to file %s" % savepath)
 
         print("Finished epoch %d. Loss average: %f" % (epochNum, (lossTotal / numBatches)))
         epochNum += 1
