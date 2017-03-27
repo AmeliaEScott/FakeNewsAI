@@ -269,7 +269,7 @@ with tf.Session() as session:
     try:
         saver.restore(session, VARIABLE_SAVE_FILE)
         print("Restored variables from file %s" % VARIABLE_SAVE_FILE)
-    except tf.errors.NotFoundError:
+    except (tf.errors.NotFoundError, tf.errors.InvalidArgumentError):
         print("Failed to load variables from file %s." % VARIABLE_SAVE_FILE)
         print("Starting all training over from scratch. Are you sure this is what you want?")
         session.run(tf.global_variables_initializer())
