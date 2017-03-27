@@ -102,3 +102,6 @@ dbsettings.json
 
 # Make sure to not commit this 1.6GB file
 AITests/GoogleNews-vectors-negative300.bin
+
+# Don't commit variable checkpoints. They're LARGE
+AITests/VariableCheckpoints/
