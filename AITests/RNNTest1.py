@@ -26,6 +26,10 @@ except (ImportError, SystemError):
         print("and use \"python -m AITests.RNNTest1\"")
         sys.exit()
 
+# File in which to save the trained weights and biases
+# .ckpt stands for checkpoint
+VARIABLE_SAVE_FILE = "VariableCheckpoints/FakeNewsAIVariables.ckpt"
+
 # Size of batch in number of articles
 # Batch size of 1 means each article is its own batch
 BATCH_SIZE = 100
@@ -256,11 +260,19 @@ except FileNotFoundError:
     sys.exit()
 print("Done loading language model")
 
+# This is how we save files to disk
+saver = tf.train.Saver()
+
 with tf.Session() as session:
     # The weights and biases for the final output layer are initialized randomly, but the internal
     # weights and biases within the RNN are not. So we need to do this to initialize them.
-    # Presumably, once this network has been trained, we'll initialize these variables from a file.
-    session.run(tf.global_variables_initializer())
+    try:
+        saver.restore(session, VARIABLE_SAVE_FILE)
+        print("Restored variables from file %s" % VARIABLE_SAVE_FILE)
+    except tf.errors.NotFoundError:
+        print("Failed to load variables from file %s." % VARIABLE_SAVE_FILE)
+        print("Starting all training over from scratch. Are you sure this is what you want?")
+        session.run(tf.global_variables_initializer())
 
     # One epoch is one run through the entire dataset
     epochNum = 1
@@ -288,6 +300,9 @@ with tf.Session() as session:
             print("Loss: %f" % lossResult)
             lossTotal += lossResult
             numBatches += 1
+            print("Saving variables...")
+            savepath = saver.save(session, save_path=VARIABLE_SAVE_FILE)
+            print("Saved variables to file %s" % savepath)
 
         print("Finished epoch %d. Loss average: %f" % (epochNum, (lossTotal / numBatches)))
         epochNum += 1
