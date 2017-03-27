@@ -60,7 +60,7 @@ VARIABLE_SCOPE = "fakenewsvariablescope"
 # The learning rate is a constant for how quickly it should learn.
 # Too high, and it could overshoot and oscillate around wildly. Too low,
 # and it'll just take forever. I have no idea how to find the right value.
-LEARNING_RATE = 1.0
+LEARNING_RATE = 0.3
 
 
 def buildtower(batchsize, networkinput, initial_state, initial_hidden_state, expected_outputs, loss_mask):
@@ -250,7 +250,6 @@ def getpaddedbatches(model):
         inputs = np.zeros(shape=(BATCH_SIZE, maxlength, WORD_VECTOR_SIZE), dtype=np.float32)
         # TODO: Deal with different values of WORDS_INPUT_AT_ONCE
 
-        print("Max length: %d" % maxlength)
         outputs = np.zeros(shape=(BATCH_SIZE, maxlength, 1), dtype=np.float32)
 
         # We initialize the mask to zeros, then make it 1 whenever we find a word, so that at the end
