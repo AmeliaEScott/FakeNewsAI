@@ -3,21 +3,12 @@ This is a refactoring of RNNTest1.py to use multiple GPUs
 """
 
 import sys
-
-try:
-    import tensorflow as tf
-    import numpy as np
-except ImportError:
-    print("You forgot to install Tensorflow and Numpy.")
-    sys.exit()
-
+import datetime
+import tensorflow as tf
+import numpy as np
 import os
+from gensim.models import KeyedVectors
 
-try:
-    from gensim.models import KeyedVectors
-except ImportError:
-    print("You forgot to install gensim. Run pip install gensim")
-    sys.exit()
 
 try:
     from AITests.DataBatching import getbatches
@@ -40,10 +31,15 @@ VARIABLE_SAVE_FILE = "VariableCheckpoints/FakeNewsAIVariables.ckpt"
 # should be evenly divisible by NUM_GPUS if NUM_GPUS > 0
 BATCH_SIZE = 10
 
+# Every UPDATE_FREQUENCY batches, the variables will be stored to disk, and
+# information will be printed about time, loss, etc.
+UPDATE_FREQUENCY = 100
+
 # Size of a vector for an individual word
 WORD_VECTOR_SIZE = 300
 
 # Number of words to input to the network at a time
+# TODO: Make sure this number works
 WORDS_INPUT_AT_ONCE = 1
 
 # Size of state to remember between iterations within one article
@@ -120,7 +116,10 @@ def buildtower(batchsize, networkinput, initial_state, initial_hidden_state, exp
     expected_outputs_reshaped = loss_mask_reshaped * expected_outputs_reshaped
     network_outputs = loss_mask_reshaped * network_outputs
 
-    loss = tf.losses.mean_squared_error(labels=expected_outputs_reshaped, predictions=network_outputs)
+    # loss = tf.losses.mean_squared_error(labels=expected_outputs_reshaped, predictions=network_outputs)
+    # The mean_squared_error is causing out of memory error, so I'm just implementing it myself
+    error_squared = tf.pow(expected_outputs_reshaped - network_outputs, 2)
+    loss = tf.reduce_mean(error_squared)
 
     return loss
 
@@ -268,6 +267,26 @@ def getpaddedbatches(model):
         yield maxlength, inputs, outputs, mask
 
 
+def debugupdate(lossaverage, epochstarttime, batchclusterstarttime):
+    """
+    This function prints out the average loss and other statistics
+    :param lossaverage: Average loss to display
+    :param epochstarttime: Time at which this epoch started
+    :param batchclusterstarttime: Time at which this group of batches started
+    :return:
+    """
+    now = datetime.datetime.now()
+    epochinterval = now - epochstarttime
+    batchinterval = now - batchclusterstarttime
+    batchseconds = batchinterval.total_seconds()
+    print("The last %d batches took %d min %.0f sec total."
+          % (UPDATE_FREQUENCY, int(batchseconds / 60), batchseconds % 60))
+    print("That's an average of %.1f sec per batch of %d articles." % (batchseconds / UPDATE_FREQUENCY, BATCH_SIZE))
+    print("This epoch has so far taken %d min %.1f sec total."
+          % (int(epochinterval.total_seconds() / 60), epochinterval.total_seconds() % 60))
+    print("The average loss for the epoch so far is %.4f." % lossaverage)
+
+
 inputs, outputs, initial_state, initial_hidden_state, loss, train_step, loss_mask = buildgraph()
 
 print("Loading language model...")
@@ -301,9 +320,15 @@ with tf.Session() as session:
     while True:
         print("Starting epoch %d" % epochNum)
 
-        # These two are for averaging the loss over the epoch
+        # These two are for averaging the loss over the entire epoch
         lossTotal = 0
         numBatches = 0
+
+        # The time at which the epoch started
+        epochstarttime = datetime.datetime.now()
+
+        # The time at which this group of batches started
+        batchclusterstarttime = datetime.datetime.now()
 
         for timeSteps, inputBatch, outputBatch, mask in getpaddedbatches(model):
             print("Starting batch %d of epoch %d. Max time steps: %d" % (numBatches, epochNum, timeSteps))
@@ -325,10 +350,12 @@ with tf.Session() as session:
             lossTotal += lossResult
             numBatches += 1
 
-            if numBatches % 100 == 0:
+            if numBatches % UPDATE_FREQUENCY == 0:
                 print("Saving variables...")
                 savepath = saver.save(session, save_path=VARIABLE_SAVE_FILE)
                 print("Saved variables to file %s" % savepath)
+                debugupdate(lossaverage=(lossTotal / numBatches), epochstarttime=epochstarttime,
+                            batchclusterstarttime=batchclusterstarttime)
 
         print("Finished epoch %d. Loss average: %f" % (epochNum, (lossTotal / numBatches)))
         epochNum += 1
