@@ -52,7 +52,7 @@ WORDS_INPUT_AT_ONCE = 1
 STATE_SIZE = 3000
 
 # Number of GPUs on the target machine. Can be 0
-NUM_GPUS = 8
+NUM_GPUS = 0
 
 # These three should just remain constant
 WEIGHTS_NAME = 'weights'
@@ -125,7 +125,8 @@ def buildtower(batchsize, networkinput, initial_state, initial_hidden_state, exp
     # loss = tf.losses.mean_squared_error(labels=expected_outputs_reshaped, predictions=network_outputs)
     # The mean_squared_error is causing out of memory error, so I'm just implementing it myself
     error_squared = tf.pow(expected_outputs_reshaped - network_outputs, 2)
-    loss = tf.reduce_mean(error_squared)
+    # loss = tf.reduce_mean(error_squared)
+    loss = tf.reduce_sum(error_squared) / tf.reduce_sum(loss_mask_reshaped)
 
     return loss, finalstate
 
