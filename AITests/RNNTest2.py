@@ -7,6 +7,7 @@ import datetime
 import tensorflow as tf
 import numpy as np
 import os
+import math
 from gensim.models import KeyedVectors
 
 
@@ -29,10 +30,11 @@ VARIABLE_SAVE_FILE = "VariableCheckpoints/FakeNewsAIVariables.ckpt"
 # Batch size of 1 means each article is its own batch
 # For the sake of me not having to bugfix, this number
 # should be evenly divisible by NUM_GPUS if NUM_GPUS > 0
-BATCH_SIZE = 10
+BATCH_SIZE = 5
 
 # Backpropagation through hundreds of time steps takes waaaay too much memory, so we
 # have to limit it. This number should be in the low hundreds, like between 100 and 400
+# This is not gauranteed to be the limit of truncation. It will vary by as much as 50%
 TRUNCATION = 20
 
 # Every UPDATE_FREQUENCY batches, the variables will be stored to disk, and
@@ -47,7 +49,7 @@ WORD_VECTOR_SIZE = 300
 WORDS_INPUT_AT_ONCE = 1
 
 # Size of state to remember between iterations within one article
-STATE_SIZE = 3000
+STATE_SIZE = 30
 
 # Number of GPUs on the target machine. Can be 0
 NUM_GPUS = 0
@@ -343,17 +345,27 @@ with tf.Session() as session:
             state = np.zeros(shape=(BATCH_SIZE, STATE_SIZE))
             hidden_state = np.zeros(shape=(BATCH_SIZE, STATE_SIZE))
 
-            for i in range(0, timeSteps, TRUNCATION):
-                # feed_dict is how we pass in values for all the placeholders
-                # This is the part of this code that takes all of the time and processor power.
-                # Even though the batching code is stupidly inefficient, it takes negligible time compared
-                # to the actual training, so let's not bother optimizing it.
+            # The following 7 lines of code are concerned with finding the best way to split up the time steps
+            # of this data for the purposes of truncated backprop. If bad values are chosen, then we can end up
+            # with just a couple of words left dangling at the end of the article in their own lonesome batch.
+            leftover = timeSteps % TRUNCATION
+            if leftover < 0.5 * TRUNCATION:
+                numSteps = int(timeSteps / TRUNCATION)
+            else:
+                numSteps = math.ceil(timeSteps / TRUNCATION)
+
+            stepSize = math.ceil(timeSteps / numSteps)
+
+            for i in range(0, timeSteps, stepSize):
+                maxTimeStep = i + stepSize
+
+                print("Working on time slice from %d to %d" % (i, maxTimeStep))
                 lossResult, trainStepResult, finalstateresult = session.run([loss, train_step, finalstate], feed_dict={
-                    inputs: inputBatch[0: BATCH_SIZE, i: i + TRUNCATION, 0: WORD_VECTOR_SIZE * WORDS_INPUT_AT_ONCE],
-                    outputs: outputBatch[0: BATCH_SIZE, i: i + TRUNCATION, 0:1],
+                    inputs: inputBatch[0: BATCH_SIZE, i: maxTimeStep, 0: WORD_VECTOR_SIZE * WORDS_INPUT_AT_ONCE],
+                    outputs: outputBatch[0: BATCH_SIZE, i: maxTimeStep, 0:1],
                     initial_state: state,
                     initial_hidden_state: hidden_state,
-                    loss_mask: mask[0: BATCH_SIZE, i: i + TRUNCATION, 0: 1]
+                    loss_mask: mask[0: BATCH_SIZE, i: maxTimeStep, 0: 1]
                 })
 
                 # Finalstateresult has both the state and the hidden state
