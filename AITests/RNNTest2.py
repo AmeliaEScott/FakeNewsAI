@@ -31,6 +31,10 @@ VARIABLE_SAVE_FILE = "VariableCheckpoints/FakeNewsAIVariables.ckpt"
 # should be evenly divisible by NUM_GPUS if NUM_GPUS > 0
 BATCH_SIZE = 10
 
+# Backpropagation through hundreds of time steps takes waaaay too much memory, so we
+# have to limit it. This number should be in the low hundreds, like between 100 and 400
+TRUNCATION = 20
+
 # Every UPDATE_FREQUENCY batches, the variables will be stored to disk, and
 # information will be printed about time, loss, etc.
 UPDATE_FREQUENCY = 100
@@ -121,7 +125,7 @@ def buildtower(batchsize, networkinput, initial_state, initial_hidden_state, exp
     error_squared = tf.pow(expected_outputs_reshaped - network_outputs, 2)
     loss = tf.reduce_mean(error_squared)
 
-    return loss
+    return loss, finalstate
 
 
 # This code is courtesy of the Tensorflow open source examples.
@@ -171,6 +175,7 @@ def buildgraph():
 
     losses = []
     gradients = []
+    finalstates = []
 
     # This list is the list of each device for which we should make a tower. If there are no GPUs, then there
     # should be exactly 1 tower, on the CPU. If there are 1 or more GPUs, then there should be a tower on
@@ -202,11 +207,12 @@ def buildgraph():
         # This line assures that all following code will be run in the specified device. For a more concrete
         # example of this, see the similar code a few lines down
         with tf.device(gpu):
-            loss = buildtower(BATCH_SIZE / len(gpus), networkinput=network_input_split[i],
+            loss, finalstate = buildtower(BATCH_SIZE / len(gpus), networkinput=network_input_split[i],
                               initial_state=initial_state_split[i],
                               initial_hidden_state=initial_hidden_state_split[i],
                               expected_outputs=expected_output_split[i], loss_mask=loss_mask_split[i])
             losses.append(loss)
+            finalstates.append(finalstate)
             gradients.append(optimizer.compute_gradients(loss, aggregation_method=tf.AggregationMethod.EXPERIMENTAL_TREE))
 
     # This assures that all the following code will run in the CPU, and not the GPU.
@@ -223,9 +229,10 @@ def buildgraph():
         # The inputs, hidden states, etc are currently split up between multiple towers.
         # Here, we just stick them all together so we can input them as we did before.
         averagelosses = sum(losses) / len(losses)
+        allfinalstates = tf.concat(finalstates, axis=0)
 
     return network_input, expected_output, initial_state, initial_hidden_state, \
-        averagelosses, train_step, loss_mask
+        averagelosses, train_step, loss_mask, allfinalstates
 
 
 def getpaddedbatches(model):
@@ -287,7 +294,7 @@ def debugupdate(lossaverage, epochstarttime, batchclusterstarttime):
     print("The average loss for the epoch so far is %.4f." % lossaverage)
 
 
-inputs, outputs, initial_state, initial_hidden_state, loss, train_step, loss_mask = buildgraph()
+inputs, outputs, initial_state, initial_hidden_state, loss, train_step, loss_mask, finalstate = buildgraph()
 
 print("Loading language model...")
 dir = os.path.dirname(__file__)
@@ -333,17 +340,25 @@ with tf.Session() as session:
         for timeSteps, inputBatch, outputBatch, mask in getpaddedbatches(model):
             print("Starting batch %d of epoch %d. Max time steps: %d" % (numBatches, epochNum, timeSteps))
 
-            # feed_dict is how we pass in values for all the placeholders
-            # This is the part of this code that takes all of the time and processor power.
-            # Even though the batching code is stupidly inefficient, it takes negligible time compared
-            # to the actual training, so let's not bother optimizing it.
-            lossResult, trainStepResult = session.run([loss, train_step], feed_dict={
-                inputs: inputBatch,
-                outputs: outputBatch,
-                initial_state: np.zeros((BATCH_SIZE, STATE_SIZE)),
-                initial_hidden_state: np.zeros((BATCH_SIZE, STATE_SIZE)),
-                loss_mask: mask
-            })
+            state = np.zeros(shape=(BATCH_SIZE, STATE_SIZE))
+            hidden_state = np.zeros(shape=(BATCH_SIZE, STATE_SIZE))
+
+            for i in range(0, timeSteps, TRUNCATION):
+                # feed_dict is how we pass in values for all the placeholders
+                # This is the part of this code that takes all of the time and processor power.
+                # Even though the batching code is stupidly inefficient, it takes negligible time compared
+                # to the actual training, so let's not bother optimizing it.
+                lossResult, trainStepResult, finalstateresult = session.run([loss, train_step, finalstate], feed_dict={
+                    inputs: inputBatch[0: BATCH_SIZE, i: i + TRUNCATION, 0: WORD_VECTOR_SIZE * WORDS_INPUT_AT_ONCE],
+                    outputs: outputBatch[0: BATCH_SIZE, i: i + TRUNCATION, 0:1],
+                    initial_state: state,
+                    initial_hidden_state: hidden_state,
+                    loss_mask: mask[0: BATCH_SIZE, i: i + TRUNCATION, 0: 1]
+                })
+
+                # Finalstateresult has both the state and the hidden state
+                state = finalstateresult[0]
+                hidden_state = finalstateresult[1]
             # Within one epoch, the loss will bounce around wildly, due to random fluctuations.
             # So it will be more useful to just average the loss over the entire epoch
             print("Finished batch. Loss: %f" % lossResult)
