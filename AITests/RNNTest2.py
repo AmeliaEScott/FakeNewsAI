@@ -30,7 +30,7 @@ VARIABLE_SAVE_FILE = "VariableCheckpoints/FakeNewsAIVariables.ckpt"
 # Batch size of 1 means each article is its own batch
 # For the sake of me not having to bugfix, this number
 # should be evenly divisible by NUM_GPUS if NUM_GPUS > 0
-BATCH_SIZE = 240
+BATCH_SIZE = 2
 
 # Backpropagation through hundreds of time steps takes waaaay too much memory, so we
 # have to limit it. This number should be in the low hundreds, like between 100 and 400
@@ -49,7 +49,7 @@ WORD_VECTOR_SIZE = 300
 WORDS_INPUT_AT_ONCE = 1
 
 # Size of state to remember between iterations within one article
-STATE_SIZE = 3000
+STATE_SIZE = 30
 
 # Number of GPUs on the target machine. Can be 0
 NUM_GPUS = 0
@@ -124,9 +124,11 @@ def buildtower(batchsize, networkinput, initial_state, initial_hidden_state, exp
 
     # loss = tf.losses.mean_squared_error(labels=expected_outputs_reshaped, predictions=network_outputs)
     # The mean_squared_error is causing out of memory error, so I'm just implementing it myself
-    error_squared = tf.pow(expected_outputs_reshaped - network_outputs, 2)
-    # loss = tf.reduce_mean(error_squared)
-    loss = tf.reduce_sum(error_squared) / tf.reduce_sum(loss_mask_reshaped)
+    error_squared = loss_mask_reshaped * tf.pow(expected_outputs_reshaped - network_outputs, 2)
+    loss = tf.reduce_mean(error_squared)
+    # loss = tf.reduce_sum(error_squared) / tf.reduce_sum(loss_mask_reshaped)
+    # loss = tf.Print(loss, [tf.reduce_sum(error_squared)], message="Sum of error squared: ")
+    # loss = tf.Print(loss, [tf.reduce_sum(loss_mask_reshaped)], message="Sum of mask: ")
 
     return loss, finalstate
 
@@ -346,6 +348,7 @@ with tf.Session() as session:
 
         for timeSteps, inputBatch, outputBatch, mask in getpaddedbatches(model):
             print("Starting batch %d of epoch %d. Max time steps: %d" % (numBatches, epochNum, timeSteps))
+            # print(str(mask))
 
             state = np.zeros(shape=(BATCH_SIZE, STATE_SIZE))
             hidden_state = np.zeros(shape=(BATCH_SIZE, STATE_SIZE))
