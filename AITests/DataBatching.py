@@ -45,9 +45,7 @@ def getbatches(batchsize):
     and each tuple in the list is (content, valid), where content is the normalized text, and valid is a boolean
     representing whether this article is true.
     """
-    cursor.execute("SELECT id FROM articles_normalized "
-                   "WHERE unknown_words / num_words::FLOAT < %s AND num_words > %s ORDER BY num_words ASC",
-                   (PROPORTION_UNKOWN_THRESHOLD, NUM_WORDS_THRESHOLD))
+    cursor.execute("SELECT id FROM articles_normalized WHERE training_set")
 
     # This line shuffles the results such that each result doesn't end up too far away from where it started.
     # Because the results are initially in order of number of words, this means that every article will
