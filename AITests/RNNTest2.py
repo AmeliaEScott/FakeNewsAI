@@ -360,10 +360,15 @@ with tf.Session() as session:
 
             stepSize = math.ceil(timeSteps / numSteps)
 
+            # This is where truncated backpropagation comes in. We can't effectively backprop through
+            # more than a few hundred time steps, so when articles get too long, we have to break them up
+            # into chunks of a few hundred words. This for loop does this.
+            # It saves the final state at the end of each chunk, then inputs it as the initial state in
+            # the next chunk. This way, the network remembers all the information from the previous chunk,
+            # it just can't backpropagate into the previous chunk.
             for i in range(0, timeSteps, stepSize):
                 maxTimeStep = i + stepSize
 
-                print("Working on time slice from %d to %d" % (i, maxTimeStep))
                 lossResult, trainStepResult, finalstateresult, finalhiddenstateresult = \
                     session.run([loss, train_step, finalstate, finalhiddenstate], feed_dict={
                         inputs: inputBatch[0: BATCH_SIZE, i: maxTimeStep, 0: WORD_VECTOR_SIZE * WORDS_INPUT_AT_ONCE],
@@ -373,7 +378,7 @@ with tf.Session() as session:
                         loss_mask: mask[0: BATCH_SIZE, i: maxTimeStep, 0:1]
                     })
 
-                # Finalstateresult has both the state and the hidden state
+                # Here is where we store the final state from this chunk, to be used by the next chunk
                 state = finalstateresult
                 hidden_state = finalhiddenstateresult
             # Within one epoch, the loss will bounce around wildly, due to random fluctuations.
@@ -388,6 +393,7 @@ with tf.Session() as session:
                 print("Saved variables to file %s" % savepath)
                 debugupdate(lossaverage=(lossTotal / numBatches), epochstarttime=epochstarttime,
                             batchclusterstarttime=batchclusterstarttime)
+                batchclusterstarttime = datetime.datetime.now()
 
         print("Finished epoch %d. Loss average: %f" % (epochNum, (lossTotal / numBatches)))
         epochNum += 1
