@@ -30,12 +30,12 @@ VARIABLE_SAVE_FILE = "VariableCheckpoints/FakeNewsAIVariables.ckpt"
 # Batch size of 1 means each article is its own batch
 # For the sake of me not having to bugfix, this number
 # should be evenly divisible by NUM_GPUS if NUM_GPUS > 0
-BATCH_SIZE = 400
+BATCH_SIZE = 240
 
 # Backpropagation through hundreds of time steps takes waaaay too much memory, so we
 # have to limit it. This number should be in the low hundreds, like between 100 and 400
 # This is not gauranteed to be the limit of truncation. It will vary by as much as 50%
-TRUNCATION = 150
+TRUNCATION = 200
 
 # Every UPDATE_FREQUENCY batches, the variables will be stored to disk, and
 # information will be printed about time, loss, etc.
@@ -49,7 +49,7 @@ WORD_VECTOR_SIZE = 300
 WORDS_INPUT_AT_ONCE = 1
 
 # Size of state to remember between iterations within one article
-STATE_SIZE = 300
+STATE_SIZE = 3000
 
 # Number of GPUs on the target machine. Can be 0
 NUM_GPUS = 8
