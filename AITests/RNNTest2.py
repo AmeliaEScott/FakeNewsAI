@@ -175,10 +175,6 @@ def buildgraph():
     :return:
     """
 
-    losses = []
-    gradients = []
-    finalstates = []
-
     # This list is the list of each device for which we should make a tower. If there are no GPUs, then there
     # should be exactly 1 tower, on the CPU. If there are 1 or more GPUs, then there should be a tower on
     # each GPU, and none on the CPU.
@@ -204,18 +200,22 @@ def buildgraph():
         expected_output_split = tf.split(expected_output, len(gpus), axis=0)
         loss_mask_split = tf.split(loss_mask, len(gpus), axis=0)
 
+    losses = []
+    gradients = []
+    finalstates = []
+
     for i in range(0, len(gpus)):
         gpu = gpus[i]
         # This line assures that all following code will be run in the specified device. For a more concrete
         # example of this, see the similar code a few lines down
         with tf.device(gpu):
             loss, finalstate = buildtower(BATCH_SIZE / len(gpus), networkinput=network_input_split[i],
-                              initial_state=initial_state_split[i],
-                              initial_hidden_state=initial_hidden_state_split[i],
-                              expected_outputs=expected_output_split[i], loss_mask=loss_mask_split[i])
-            losses.append(loss)
-            finalstates.append(finalstate)
+                                          initial_state=initial_state_split[i],
+                                          initial_hidden_state=initial_hidden_state_split[i],
+                                          expected_outputs=expected_output_split[i], loss_mask=loss_mask_split[i])
             gradients.append(optimizer.compute_gradients(loss, aggregation_method=tf.AggregationMethod.EXPERIMENTAL_TREE))
+        losses.append(loss)
+        finalstates.append(finalstate)
 
     # This assures that all the following code will run in the CPU, and not the GPU.
     # More specifically, any graph operation constructed in this "with" block will be run in the CPU
@@ -232,6 +232,9 @@ def buildgraph():
         # Here, we just stick them all together so we can input them as we did before.
         averagelosses = sum(losses) / len(losses)
         allfinalstates = tf.concat(finalstates, axis=0)
+        print("Shape of allfinalstates: %s" % str(allfinalstates.get_shape()))
+        for f in finalstates:
+            print("Shape of one of the final states: %s" % str(f.get_state()))
 
     return network_input, expected_output, initial_state, initial_hidden_state, \
         averagelosses, train_step, loss_mask, allfinalstates
@@ -365,7 +368,7 @@ with tf.Session() as session:
                     outputs: outputBatch[0: BATCH_SIZE, i: maxTimeStep, 0:1],
                     initial_state: state,
                     initial_hidden_state: hidden_state,
-                    loss_mask: mask[0: BATCH_SIZE, i: maxTimeStep, 0: 1]
+                    loss_mask: mask[0: BATCH_SIZE, i: maxTimeStep, 0:1]
                 })
 
                 # Finalstateresult has both the state and the hidden state
