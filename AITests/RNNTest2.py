@@ -30,12 +30,12 @@ VARIABLE_SAVE_FILE = "VariableCheckpoints/FakeNewsAIVariables.ckpt"
 # Batch size of 1 means each article is its own batch
 # For the sake of me not having to bugfix, this number
 # should be evenly divisible by NUM_GPUS if NUM_GPUS > 0
-BATCH_SIZE = 5
+BATCH_SIZE = 400
 
 # Backpropagation through hundreds of time steps takes waaaay too much memory, so we
 # have to limit it. This number should be in the low hundreds, like between 100 and 400
 # This is not gauranteed to be the limit of truncation. It will vary by as much as 50%
-TRUNCATION = 20
+TRUNCATION = 150
 
 # Every UPDATE_FREQUENCY batches, the variables will be stored to disk, and
 # information will be printed about time, loss, etc.
@@ -49,10 +49,10 @@ WORD_VECTOR_SIZE = 300
 WORDS_INPUT_AT_ONCE = 1
 
 # Size of state to remember between iterations within one article
-STATE_SIZE = 30
+STATE_SIZE = 300
 
 # Number of GPUs on the target machine. Can be 0
-NUM_GPUS = 0
+NUM_GPUS = 8
 
 # These three should just remain constant
 WEIGHTS_NAME = 'weights'
@@ -203,6 +203,7 @@ def buildgraph():
     losses = []
     gradients = []
     finalstates = []
+    finalhiddenstates = []
 
     for i in range(0, len(gpus)):
         gpu = gpus[i]
@@ -215,7 +216,8 @@ def buildgraph():
                                           expected_outputs=expected_output_split[i], loss_mask=loss_mask_split[i])
             gradients.append(optimizer.compute_gradients(loss, aggregation_method=tf.AggregationMethod.EXPERIMENTAL_TREE))
         losses.append(loss)
-        finalstates.append(finalstate)
+        finalstates.append(finalstate[0])
+        finalhiddenstates.append(finalstate[1])
 
     # This assures that all the following code will run in the CPU, and not the GPU.
     # More specifically, any graph operation constructed in this "with" block will be run in the CPU
@@ -232,12 +234,10 @@ def buildgraph():
         # Here, we just stick them all together so we can input them as we did before.
         averagelosses = sum(losses) / len(losses)
         allfinalstates = tf.concat(finalstates, axis=0)
-        print("Shape of allfinalstates: %s" % str(allfinalstates[0].get_shape()))
-        for f in finalstates:
-            print("Shape of one of the final states: %s" % str(f[0].get_shape()))
+        allfinalhiddenstates = tf.concat(finalhiddenstates, axis=0)
 
     return network_input, expected_output, initial_state, initial_hidden_state, \
-        averagelosses, train_step, loss_mask, allfinalstates
+        averagelosses, train_step, loss_mask, allfinalstates, allfinalhiddenstates
 
 
 def getpaddedbatches(model):
@@ -299,7 +299,8 @@ def debugupdate(lossaverage, epochstarttime, batchclusterstarttime):
     print("The average loss for the epoch so far is %.4f." % lossaverage)
 
 
-inputs, outputs, initial_state, initial_hidden_state, loss, train_step, loss_mask, finalstate = buildgraph()
+inputs, outputs, initial_state, initial_hidden_state, \
+loss, train_step, loss_mask, finalstate, finalhiddenstate = buildgraph()
 
 print("Loading language model...")
 dir = os.path.dirname(__file__)
@@ -363,17 +364,18 @@ with tf.Session() as session:
                 maxTimeStep = i + stepSize
 
                 print("Working on time slice from %d to %d" % (i, maxTimeStep))
-                lossResult, trainStepResult, finalstateresult = session.run([loss, train_step, finalstate], feed_dict={
-                    inputs: inputBatch[0: BATCH_SIZE, i: maxTimeStep, 0: WORD_VECTOR_SIZE * WORDS_INPUT_AT_ONCE],
-                    outputs: outputBatch[0: BATCH_SIZE, i: maxTimeStep, 0:1],
-                    initial_state: state,
-                    initial_hidden_state: hidden_state,
-                    loss_mask: mask[0: BATCH_SIZE, i: maxTimeStep, 0:1]
-                })
+                lossResult, trainStepResult, finalstateresult, finalhiddenstateresult = \
+                    session.run([loss, train_step, finalstate, finalhiddenstate], feed_dict={
+                        inputs: inputBatch[0: BATCH_SIZE, i: maxTimeStep, 0: WORD_VECTOR_SIZE * WORDS_INPUT_AT_ONCE],
+                        outputs: outputBatch[0: BATCH_SIZE, i: maxTimeStep, 0:1],
+                        initial_state: state,
+                        initial_hidden_state: hidden_state,
+                        loss_mask: mask[0: BATCH_SIZE, i: maxTimeStep, 0:1]
+                    })
 
                 # Finalstateresult has both the state and the hidden state
-                state = finalstateresult[0]
-                hidden_state = finalstateresult[1]
+                state = finalstateresult
+                hidden_state = finalhiddenstateresult
             # Within one epoch, the loss will bounce around wildly, due to random fluctuations.
             # So it will be more useful to just average the loss over the entire epoch
             print("Finished batch. Loss: %f" % lossResult)
