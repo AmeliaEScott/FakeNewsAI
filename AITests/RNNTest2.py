@@ -122,7 +122,7 @@ def buildtower(batchsize, networkinput, initial_state, initial_hidden_state, exp
     expected_outputs_reshaped = loss_mask_reshaped * expected_outputs_reshaped
     # network_outputs = loss_mask_reshaped * network_outputs
 
-    loss = tf.losses.mean_squared_error(labels=expected_outputs_reshaped, predictions=network_outputs, weights=loss_mask_reshaped)
+    loss = tf.losses.mean_squared_error(labels=expected_outputs_reshaped, predictions=network_outputs)
     # The mean_squared_error is causing out of memory error, so I'm just implementing it myself
     # error_squared = loss_mask_reshaped * tf.pow(expected_outputs_reshaped - network_outputs, 2)
     # loss = tf.reduce_mean(error_squared)
