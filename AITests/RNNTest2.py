@@ -112,21 +112,21 @@ def buildtower(batchsize, networkinput, initial_state, initial_hidden_state, exp
 
     # Build the output layers
     rnn_outputs_reshaped = tf.reshape(rnn_outputs, [-1, STATE_SIZE])
-    network_outputs = tf.sigmoid(tf.matmul(rnn_outputs_reshaped, weights) + biases)
+    network_outputs = tf.reshape(tf.sigmoid(tf.matmul(rnn_outputs_reshaped, weights) + biases), shape=[-1])
     # expected_outputs = tf.placeholder(dtype=tf.float32, shape=[BATCH_SIZE, None, 1], name="expectedOutputsPlaceholder")
-    expected_outputs_reshaped = tf.reshape(expected_outputs, [-1, 1])
+    expected_outputs_reshaped = tf.reshape(expected_outputs, [-1])
 
     # loss_mask = tf.placeholder(dtype=tf.float32, shape=[BATCH_SIZE, None, 1], name="lossMaskPlaceholder")
     loss_mask_reshaped = tf.reshape(loss_mask, shape=[-1])
 
     expected_outputs_reshaped = loss_mask_reshaped * expected_outputs_reshaped
-    network_outputs = loss_mask_reshaped * network_outputs
+    # network_outputs = loss_mask_reshaped * network_outputs
 
-    # loss = tf.losses.mean_squared_error(labels=expected_outputs_reshaped, predictions=network_outputs)
+    loss = tf.losses.mean_squared_error(labels=expected_outputs_reshaped, predictions=network_outputs, weights=loss_mask_reshaped)
     # The mean_squared_error is causing out of memory error, so I'm just implementing it myself
-    error_squared = loss_mask_reshaped * tf.pow(expected_outputs_reshaped - network_outputs, 2)
-    loss = tf.reduce_mean(error_squared)
-    # loss = tf.reduce_sum(error_squared) / tf.reduce_sum(loss_mask_reshaped)
+    # error_squared = loss_mask_reshaped * tf.pow(expected_outputs_reshaped - network_outputs, 2)
+    # loss = tf.reduce_mean(error_squared)
+    # loss = tf.divide(tf.reduce_sum(error_squared), tf.reduce_sum(loss_mask_reshaped))
     # loss = tf.Print(loss, [tf.reduce_sum(error_squared)], message="Sum of error squared: ")
     # loss = tf.Print(loss, [tf.reduce_sum(loss_mask_reshaped)], message="Sum of mask: ")
 
