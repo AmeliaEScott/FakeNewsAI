@@ -30,7 +30,7 @@ VARIABLE_SAVE_FILE = "VariableCheckpoints/FakeNewsAIVariables.ckpt"
 # Batch size of 1 means each article is its own batch
 # For the sake of me not having to bugfix, this number
 # should be evenly divisible by NUM_GPUS if NUM_GPUS > 0
-BATCH_SIZE = 2
+BATCH_SIZE = 20
 
 # Backpropagation through hundreds of time steps takes waaaay too much memory, so we
 # have to limit it. This number should be in the low hundreds, like between 100 and 400
@@ -65,15 +65,18 @@ VARIABLE_SCOPE = "fakenewsvariablescope"
 LEARNING_RATE = 0.3
 
 
-def buildtower(batchsize, networkinput, initial_state, initial_hidden_state, expected_outputs, loss_mask):
+def buildtower(networkinput, initial_state, initial_hidden_state, expected_outputs, loss_mask):
     """
     Builds a single instance of a tower.
     A tower, in this case, is the entire neural network up to the point where it calculates the gradient.
     This is because all of these operations can be run in parallel across multiple GPUs, but the gradient
     must be calculated all at once on the CPU. Thus, the computational graph returned by this function
     can be entirely self-contained within a single GPU.
-    :param batchsize: Size of each batch. This needs to be provided as a parameter because splitting a batch
-            over multiple GPUs means that each batch size will be smaller.
+    :param networkinput: Placeholder for the inputs to the network
+    :param initial_state: Placeholder for the initial state for the LSTM
+    :param initial_hidden_state: Placeholder for the initial hidden state for the LSTM
+    :param expected_outputs: Placeholder for the expected outputs from the network
+    :param loss_mask: Placeholder for the loss mask
     :return: The placeholders for the network input, the initial state, and the initial hidden state,
             as well as the loss, loss_mask, and network outputs
     """
@@ -81,27 +84,22 @@ def buildtower(batchsize, networkinput, initial_state, initial_hidden_state, exp
     # For much more thorough documentation on this code, see RNNTest1.py.
     # Except where otherwise stated, this code all does roughly the same thing here.
 
-    # The inputs to the neural network
-    # networkinput = tf.placeholder(tf.float32, shape=[BATCH_SIZE, None, WORD_VECTOR_SIZE * WORDS_INPUT_AT_ONCE],
-    #                               name="inputPlaceholder")
-
     # States for the LSTM
-    # initial_state = tf.placeholder(tf.float32, shape=[BATCH_SIZE, STATE_SIZE], name="initialStatePlaceholder")
-    # initial_hidden_state = tf.placeholder(tf.float32, shape=[BATCH_SIZE, STATE_SIZE],
-    #                                       name="initialHiddenStatePlaceholder")
     initial_state_tuple = tf.contrib.rnn.LSTMStateTuple(initial_state, initial_hidden_state)
-
 
     # Create the actual RNN
     try:
         with tf.variable_scope(VARIABLE_SCOPE, reuse=True):
             cell = tf.contrib.rnn.BasicLSTMCell(STATE_SIZE)
-            rnn_outputs, finalstate = tf.nn.dynamic_rnn(cell=cell, inputs=networkinput, initial_state=initial_state_tuple)
+            rnn_outputs, finalstate = tf.nn.dynamic_rnn(cell=cell, inputs=networkinput,
+                                                        initial_state=initial_state_tuple,
+                                                        sequence_length=tf.reduce_sum(loss_mask, axis=[1, 2]))
     except ValueError:
         with tf.variable_scope(VARIABLE_SCOPE, reuse=None):
             cell = tf.contrib.rnn.BasicLSTMCell(STATE_SIZE)
             rnn_outputs, finalstate = tf.nn.dynamic_rnn(cell=cell, inputs=networkinput,
-                                                        initial_state=initial_state_tuple)
+                                                        initial_state=initial_state_tuple,
+                                                        sequence_length=tf.reduce_sum(loss_mask, axis=[1, 2]))
 
     # Here is where this code differs from RNNTest1. We can't simply construct a new Variable, because
     # these variables must be shared between multiple different towers. This piece of code retrieves
@@ -113,13 +111,11 @@ def buildtower(batchsize, networkinput, initial_state, initial_hidden_state, exp
     # Build the output layers
     rnn_outputs_reshaped = tf.reshape(rnn_outputs, [-1, STATE_SIZE])
     network_outputs = tf.reshape(tf.sigmoid(tf.matmul(rnn_outputs_reshaped, weights) + biases), shape=[-1])
-    # expected_outputs = tf.placeholder(dtype=tf.float32, shape=[BATCH_SIZE, None, 1], name="expectedOutputsPlaceholder")
     expected_outputs_reshaped = tf.reshape(expected_outputs, [-1])
 
-    # loss_mask = tf.placeholder(dtype=tf.float32, shape=[BATCH_SIZE, None, 1], name="lossMaskPlaceholder")
-    loss_mask_reshaped = tf.reshape(loss_mask, shape=[-1])
+    # loss_mask_reshaped = tf.reshape(loss_mask, shape=[-1])
 
-    expected_outputs_reshaped = loss_mask_reshaped * expected_outputs_reshaped
+    expected_outputs_reshaped = expected_outputs_reshaped
     # network_outputs = loss_mask_reshaped * network_outputs
 
     loss = tf.losses.mean_squared_error(labels=expected_outputs_reshaped, predictions=network_outputs)
@@ -187,13 +183,14 @@ def buildgraph():
 
     with tf.device("/cpu:0"):
         with tf.variable_scope(VARIABLE_SCOPE):
-            weights = tf.get_variable(WEIGHTS_NAME, shape=[STATE_SIZE, 1], dtype=tf.float32,
-                                      initializer=tf.random_uniform_initializer(minval=-1, maxval=1, dtype=tf.float32))
-            biases = tf.get_variable(BIASES_NAME, shape=[1], dtype=tf.float32,
-                                     initializer=tf.constant_initializer(0.0, dtype=tf.float32))
+            tf.get_variable(WEIGHTS_NAME, shape=[STATE_SIZE, 1], dtype=tf.float32,
+                            initializer=tf.random_uniform_initializer(minval=-1, maxval=1, dtype=tf.float32))
+            tf.get_variable(BIASES_NAME, shape=[1], dtype=tf.float32,
+                            initializer=tf.constant_initializer(0.0, dtype=tf.float32))
         network_input = tf.placeholder(dtype=tf.float32, shape=[BATCH_SIZE, None, WORD_VECTOR_SIZE], name="Inputs")
         initial_state = tf.placeholder(dtype=tf.float32, shape=[BATCH_SIZE, STATE_SIZE], name="InitialState")
-        initial_hidden_state = tf.placeholder(dtype=tf.float32, shape=[BATCH_SIZE, STATE_SIZE], name="InitialHiddenState")
+        initial_hidden_state = tf.placeholder(dtype=tf.float32, shape=[BATCH_SIZE, STATE_SIZE],
+                                              name="InitialHiddenState")
         expected_output = tf.placeholder(dtype=tf.float32, shape=[BATCH_SIZE, None, 1], name="ExpectedOutputs")
         loss_mask = tf.placeholder(dtype=tf.float32, shape=[BATCH_SIZE, None, 1], name="lossMaskPlaceholder")
 
@@ -213,11 +210,12 @@ def buildgraph():
         # This line assures that all following code will be run in the specified device. For a more concrete
         # example of this, see the similar code a few lines down
         with tf.device(gpu):
-            loss, finalstate = buildtower(BATCH_SIZE / len(gpus), networkinput=network_input_split[i],
+            loss, finalstate = buildtower(networkinput=network_input_split[i],
                                           initial_state=initial_state_split[i],
                                           initial_hidden_state=initial_hidden_state_split[i],
                                           expected_outputs=expected_output_split[i], loss_mask=loss_mask_split[i])
-            gradients.append(optimizer.compute_gradients(loss, aggregation_method=tf.AggregationMethod.EXPERIMENTAL_TREE))
+            gradients.append(optimizer.compute_gradients(loss,
+                                                         aggregation_method=tf.AggregationMethod.EXPERIMENTAL_TREE))
         losses.append(loss)
         finalstates.append(finalstate[0])
         finalhiddenstates.append(finalstate[1])
@@ -248,16 +246,19 @@ def getpaddedbatches(model):
     This function takes the batches of data and shuffles them around to fit
     the format needed by Tensorflow.
     :param model: The language model to use to convert words to vectors
-    :return: Maxlength, inputs, outputs, mask.
+    :return: Maxlength, inputs, outputs, mask, padding.
         Maxlength is the number of timesteps in this batch
-        Inputs are the inputs to the network
-        Outputs are the expected outputs from the network
-        Mask is the previously-discussed output mask for padded inputs
+        Inputs are the inputs to the network, an ndarray of shape [BATCH_SIZE, maxlength, WORD_VECTOR_SIZE]
+        Outputs are the expected outputs from the network, an ndarray of shape [BATCH_SIZE, maxlength, 1]
+        Mask is the previously-discussed output mask for padded inputs, an ndarray of shape [BATCH_SIZE, maxlength, 1]
+        Padding is a float representing the proportion of this batch that is padding
     """
 
     for batch in getbatches(BATCH_SIZE):
         # Max length is the number of words in the longest article
-        maxlength = max([len(element[0].split(" ")) for element in batch])
+        lengths = [len(element[0].split(" ")) for element in batch]
+        maxlength = max(lengths)
+        padding = 1 - (sum(lengths) / (len(lengths) * maxlength))
 
         # Inputs are the inputs to the network, in the shape specified by the input placeholder of the graph
         # We default them to zeros, because that is our padding choice
@@ -279,7 +280,9 @@ def getpaddedbatches(model):
                     inputs[elementNum, i] = model[words[i]]
                 outputs[elementNum, i] = output
                 mask[elementNum, i] = 1.0
-        yield maxlength, inputs, outputs, mask
+            for i in range(len(words), maxlength):
+                outputs[elementNum, i] = output
+        yield maxlength, inputs, outputs, mask, padding
 
 
 def debugupdate(lossaverage, epochstarttime, batchclusterstarttime):
@@ -303,7 +306,7 @@ def debugupdate(lossaverage, epochstarttime, batchclusterstarttime):
 
 
 inputs, outputs, initial_state, initial_hidden_state, \
-loss, train_step, loss_mask, finalstate, finalhiddenstate = buildgraph()
+    loss, train_step, loss_mask, finalstate, finalhiddenstate = buildgraph()
 
 print("Loading language model...")
 dir = os.path.dirname(__file__)
@@ -346,8 +349,10 @@ with tf.Session() as session:
         # The time at which this group of batches started
         batchclusterstarttime = datetime.datetime.now()
 
-        for timeSteps, inputBatch, outputBatch, mask in getpaddedbatches(model):
-            print("Starting batch %d of epoch %d. Max time steps: %d" % (numBatches, epochNum, timeSteps))
+        for timeSteps, inputBatch, outputBatch, mask, padding in getpaddedbatches(model):
+            numTrue = sum(outputBatch[..., 0, 0])
+            print("Starting batch %d of epoch %d. Max time steps: %d. Proportion padding: %f. True: %d / %d"
+                  % (numBatches, epochNum, timeSteps, padding, numTrue, BATCH_SIZE))
             # print(str(mask))
 
             state = np.zeros(shape=(BATCH_SIZE, STATE_SIZE))
