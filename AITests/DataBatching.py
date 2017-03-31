@@ -33,7 +33,7 @@ PROPORTION_UNKOWN_THRESHOLD = 0.2
 
 # The larger this number is, the more shuffled the data will be, but that means
 # that each batch will have more varied article length, which means more padding for the shorter articles
-SHUFFLE_DISTANCE = 10000
+SHUFFLE_DISTANCE = 1000
 
 
 def getbatches(batchsize):
@@ -60,21 +60,21 @@ def getbatches(batchsize):
     # This line just gets rid of the nested tuple crap and expands it into a flat list
     results = [id[0] for id in results]
 
-    batch = []
-    # TODO:  Actually randomize the order of the batches.
-    # Right now, it's roughly in order from least words to most
+    # At this point, results is just a normal list of IDs, like this: [1, 2, 3, 4, ...]
+    # (They are sort of in order of number of words, so that batches have similar number of words per article)
+    # Now, we split it up into batches:
+    results = [results[i: i + batchsize] for i in range(0, len(results), batchsize)]
+    # Now, results look like this: [ [1, 2, 3], [4, 5, 6] ... ]
 
-    # batchnum = 0  # This was used in testing. No longer necessary, but I'm keeping it around for nostalgia's sake
-    for id in results:
-        batch.append(id)
-        if len(batch) >= batchsize:
-            # batchnum += 1
-            # This is the part where it actually retrieves the relevant content from the database
-            cursor.execute("SELECT an.content, s.valid FROM articles_normalized an JOIN sources s ON an.source=s.url "
-                           "WHERE id = ANY(%s)", (batch,))
-            batch = []
-            # "yield" is what makes this function a generator, so you can iterate over it using "for ... in"
-            yield cursor.fetchmany(batchsize)
+    # Results can now be randomly shuffled without mixing articles of different lengths together
+    random.shuffle(results)
+
+    for ids in results:
+        # This is the part where it actually retrieves the relevant content from the database
+        cursor.execute("SELECT an.content, s.valid FROM articles_normalized an JOIN sources s ON an.source=s.url "
+                       "WHERE id = ANY(%s)", (ids,))
+        # "yield" is what makes this function a generator, so you can iterate over it using "for ... in"
+        yield cursor.fetchmany(batchsize)
 
 
 if __name__ == "__main__":
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     # (Spoiler alert: Not very fast)
     # TODO: Look into downloading all of the data as, like, a CSV or something, to limit number of database calls
     count = 0
-    for batch in getbatches(100):
-        count += 1
-        if count % 10 == 0:
-            print(count)
+    for batch in getbatches(10):
+        for article in batch:
+            print("%d %s" % (len(article[0].split(" ")), article[1]))
+        print("\n")
