@@ -30,7 +30,7 @@ VARIABLE_SAVE_FILE = "VariableCheckpoints/FakeNewsAIVariables.ckpt"
 # Batch size of 1 means each article is its own batch
 # For the sake of me not having to bugfix, this number
 # should be evenly divisible by NUM_GPUS if NUM_GPUS > 0
-BATCH_SIZE = 20
+BATCH_SIZE = 40
 
 # Backpropagation through hundreds of time steps takes waaaay too much memory, so we
 # have to limit it. This number should be in the low hundreds, like between 100 and 400
@@ -39,21 +39,21 @@ TRUNCATION = 200
 
 # Every UPDATE_FREQUENCY batches, the variables will be stored to disk, and
 # information will be printed about time, loss, etc.
-UPDATE_FREQUENCY = 100
+UPDATE_FREQUENCY = 50
 
 # Size of a vector for an individual word
 WORD_VECTOR_SIZE = 300
 
 # If True, the network will attempt to get every single output at every time step correct.
 # If False, then it will only care about the final output.
-SEQ2SEQ = True
+SEQ2SEQ = False
 
 # Number of words to input to the network at a time
 # TODO: Make sure this number works
 WORDS_INPUT_AT_ONCE = 1
 
 # Size of state to remember between iterations within one article
-STATE_SIZE = 30
+STATE_SIZE = 3000
 
 # Number of GPUs on the target machine. Can be 0
 NUM_GPUS = 0
@@ -113,7 +113,10 @@ def buildtower(networkinput, initial_state, initial_hidden_state, expected_outpu
         biases = tf.get_variable(name=BIASES_NAME, shape=[1], dtype=tf.float32)
 
     # Build the output layers
-    rnn_outputs_reshaped = tf.reshape(rnn_outputs, [-1, STATE_SIZE])
+    if SEQ2SEQ:
+        rnn_outputs_reshaped = tf.reshape(rnn_outputs, [-1, STATE_SIZE])
+    else:
+        rnn_outputs_reshaped = tf.reshape(finalstate[0], [-1, STATE_SIZE])
     network_outputs = tf.reshape(tf.sigmoid(tf.matmul(rnn_outputs_reshaped, weights) + biases), shape=[-1])
 
     # This operation changes the shape of expected_outputs from [BATCH_SIZE] to [BATCH_SIZE, 1],
@@ -121,17 +124,24 @@ def buildtower(networkinput, initial_state, initial_hidden_state, expected_outpu
     # For example, the tensor [1, 2, 3] has shape [3], while the tensor [[1], [2], [3]] has shape [3, 1]
     expected_outputs = tf.expand_dims(expected_outputs, axis=1)
 
-    # The expected_outputs placeholder is currently shaped [BATCH_SIZE], because it has only one value
-    # for each article in the batch. If we are doing seq2seq, then we need to have an expected output
-    # for every word of every article. Tile just repeats the tensor for every word.
-    # That tf.shape(...) nonsense is because the number of timesteps is unknown (It's the "None" dimension
-    # of the inputs), so we have to fetch that number dynamically.
-    expected_outputs_tiled = tf.tile(expected_outputs, multiples=[1, tf.shape(networkinput)[1]])
-    expected_outputs_reshaped = tf.reshape(expected_outputs_tiled, [-1])
-
-    loss_mask_reshaped = tf.reshape(loss_mask, shape=[-1])
+    if SEQ2SEQ:
+        # The expected_outputs placeholder is currently shaped [BATCH_SIZE], because it has only one value
+        # for each article in the batch. If we are doing seq2seq, then we need to have an expected output
+        # for every word of every article. Tile just repeats the tensor for every word.
+        # That tf.shape(...) nonsense is because the number of timesteps is unknown (It's the "None" dimension
+        # of the inputs), so we have to fetch that number dynamically.
+        expected_outputs_tiled = tf.tile(expected_outputs, multiples=[1, tf.shape(networkinput)[1]])
+        expected_outputs_reshaped = tf.reshape(expected_outputs_tiled, [-1])
+    else:
+        expected_outputs_reshaped = tf.reshape(expected_outputs, [-1])
 
     # network_outputs = loss_mask_reshaped * network_outputs
+
+    if SEQ2SEQ:
+        loss_mask_reshaped = tf.reshape(loss_mask, shape=[-1])
+    else:
+        # If we're not doing Seq2Seq, then there is no loss mask
+        loss_mask_reshaped = 1.0
 
     loss = tf.losses.mean_squared_error(labels=expected_outputs_reshaped, predictions=network_outputs,
                                         weights=loss_mask_reshaped)
