@@ -44,6 +44,10 @@ UPDATE_FREQUENCY = 100
 # Size of a vector for an individual word
 WORD_VECTOR_SIZE = 300
 
+# If True, the network will attempt to get every single output at every time step correct.
+# If False, then it will only care about the final output.
+SEQ2SEQ = True
+
 # Number of words to input to the network at a time
 # TODO: Make sure this number works
 WORDS_INPUT_AT_ONCE = 1
@@ -111,20 +115,26 @@ def buildtower(networkinput, initial_state, initial_hidden_state, expected_outpu
     # Build the output layers
     rnn_outputs_reshaped = tf.reshape(rnn_outputs, [-1, STATE_SIZE])
     network_outputs = tf.reshape(tf.sigmoid(tf.matmul(rnn_outputs_reshaped, weights) + biases), shape=[-1])
-    expected_outputs_reshaped = tf.reshape(expected_outputs, [-1])
 
-    # loss_mask_reshaped = tf.reshape(loss_mask, shape=[-1])
+    # This operation changes the shape of expected_outputs from [BATCH_SIZE] to [BATCH_SIZE, 1],
+    # which, as it turns out, is a meaningful distinction.
+    # For example, the tensor [1, 2, 3] has shape [3], while the tensor [[1], [2], [3]] has shape [3, 1]
+    expected_outputs = tf.expand_dims(expected_outputs, axis=1)
 
-    expected_outputs_reshaped = expected_outputs_reshaped
+    # The expected_outputs placeholder is currently shaped [BATCH_SIZE], because it has only one value
+    # for each article in the batch. If we are doing seq2seq, then we need to have an expected output
+    # for every word of every article. Tile just repeats the tensor for every word.
+    # That tf.shape(...) nonsense is because the number of timesteps is unknown (It's the "None" dimension
+    # of the inputs), so we have to fetch that number dynamically.
+    expected_outputs_tiled = tf.tile(expected_outputs, multiples=[1, tf.shape(networkinput)[1]])
+    expected_outputs_reshaped = tf.reshape(expected_outputs_tiled, [-1])
+
+    loss_mask_reshaped = tf.reshape(loss_mask, shape=[-1])
+
     # network_outputs = loss_mask_reshaped * network_outputs
 
-    loss = tf.losses.mean_squared_error(labels=expected_outputs_reshaped, predictions=network_outputs)
-    # The mean_squared_error is causing out of memory error, so I'm just implementing it myself
-    # error_squared = loss_mask_reshaped * tf.pow(expected_outputs_reshaped - network_outputs, 2)
-    # loss = tf.reduce_mean(error_squared)
-    # loss = tf.divide(tf.reduce_sum(error_squared), tf.reduce_sum(loss_mask_reshaped))
-    # loss = tf.Print(loss, [tf.reduce_sum(error_squared)], message="Sum of error squared: ")
-    # loss = tf.Print(loss, [tf.reduce_sum(loss_mask_reshaped)], message="Sum of mask: ")
+    loss = tf.losses.mean_squared_error(labels=expected_outputs_reshaped, predictions=network_outputs,
+                                        weights=loss_mask_reshaped)
 
     return loss, finalstate
 
@@ -191,7 +201,7 @@ def buildgraph():
         initial_state = tf.placeholder(dtype=tf.float32, shape=[BATCH_SIZE, STATE_SIZE], name="InitialState")
         initial_hidden_state = tf.placeholder(dtype=tf.float32, shape=[BATCH_SIZE, STATE_SIZE],
                                               name="InitialHiddenState")
-        expected_output = tf.placeholder(dtype=tf.float32, shape=[BATCH_SIZE, None, 1], name="ExpectedOutputs")
+        expected_output = tf.placeholder(dtype=tf.float32, shape=[BATCH_SIZE], name="ExpectedOutputs")
         loss_mask = tf.placeholder(dtype=tf.float32, shape=[BATCH_SIZE, None, 1], name="lossMaskPlaceholder")
 
         network_input_split = tf.split(network_input, len(gpus), axis=0)
@@ -265,7 +275,7 @@ def getpaddedbatches(model):
         inputs = np.zeros(shape=(BATCH_SIZE, maxlength, WORD_VECTOR_SIZE), dtype=np.float32)
         # TODO: Deal with different values of WORDS_INPUT_AT_ONCE
 
-        outputs = np.zeros(shape=(BATCH_SIZE, maxlength, 1), dtype=np.float32)
+        outputs = np.zeros(shape=(BATCH_SIZE, ), dtype=np.float32)
 
         # We initialize the mask to zeros, then make it 1 whenever we find a word, so that at the end
         # when we run out of words, its all zeros for the rest of the time steps
@@ -274,14 +284,11 @@ def getpaddedbatches(model):
         for elementNum in range(0, BATCH_SIZE):
             element = batch[elementNum]
             words = element[0].split(" ")
-            output = 1.0 if element[1] == 'true' else 0.0
+            outputs[elementNum] = (1.0 if element[1] == 'true' else 0.0)
             for i in range(0, len(words)):
                 if words[i] != '<UNK>':
                     inputs[elementNum, i] = model[words[i]]
-                outputs[elementNum, i] = output
                 mask[elementNum, i] = 1.0
-            for i in range(len(words), maxlength):
-                outputs[elementNum, i] = output
         yield maxlength, inputs, outputs, mask, padding
 
 
@@ -323,7 +330,9 @@ print("Done loading language model")
 # This is how we save files to disk
 saver = tf.train.Saver()
 
-with tf.Session() as session:
+config = tf.ConfigProto()
+config.gpu_options.soft_placement = True
+with tf.Session(config=config) as session:
     # The weights and biases for the final output layer are initialized randomly, but the internal
     # weights and biases within the RNN are not. So we need to do this to initialize them.
     try:
@@ -350,7 +359,7 @@ with tf.Session() as session:
         batchclusterstarttime = datetime.datetime.now()
 
         for timeSteps, inputBatch, outputBatch, mask, padding in getpaddedbatches(model):
-            numTrue = sum(outputBatch[..., 0, 0])
+            numTrue = sum(outputBatch)
             print("Starting batch %d of epoch %d. Max time steps: %d. Proportion padding: %f. True: %d / %d"
                   % (numBatches, epochNum, timeSteps, padding, numTrue, BATCH_SIZE))
             # print(str(mask))
@@ -381,7 +390,7 @@ with tf.Session() as session:
                 lossResult, trainStepResult, finalstateresult, finalhiddenstateresult = \
                     session.run([loss, train_step, finalstate, finalhiddenstate], feed_dict={
                         inputs: inputBatch[0: BATCH_SIZE, i: maxTimeStep, 0: WORD_VECTOR_SIZE * WORDS_INPUT_AT_ONCE],
-                        outputs: outputBatch[0: BATCH_SIZE, i: maxTimeStep, 0:1],
+                        outputs: outputBatch,
                         initial_state: state,
                         initial_hidden_state: hidden_state,
                         loss_mask: mask[0: BATCH_SIZE, i: maxTimeStep, 0:1]
