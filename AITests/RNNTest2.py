@@ -30,7 +30,7 @@ VARIABLE_SAVE_FILE = "VariableCheckpoints/FakeNewsAIVariables.ckpt"
 # Batch size of 1 means each article is its own batch
 # For the sake of me not having to bugfix, this number
 # should be evenly divisible by NUM_GPUS if NUM_GPUS > 0
-BATCH_SIZE = 40
+BATCH_SIZE = 20
 
 # Backpropagation through hundreds of time steps takes waaaay too much memory, so we
 # have to limit it. This number should be in the low hundreds, like between 100 and 400
@@ -48,12 +48,15 @@ WORD_VECTOR_SIZE = 300
 # If False, then it will only care about the final output.
 SEQ2SEQ = False
 
+# If true, then print out a bunch of debugging stuff in the actual graph
+DEBUG = True
+
 # Number of words to input to the network at a time
 # TODO: Make sure this number works
 WORDS_INPUT_AT_ONCE = 1
 
 # Size of state to remember between iterations within one article
-STATE_SIZE = 3000
+STATE_SIZE = 30
 
 # Number of GPUs on the target machine. Can be 0
 NUM_GPUS = 0
@@ -145,6 +148,12 @@ def buildtower(networkinput, initial_state, initial_hidden_state, expected_outpu
 
     loss = tf.losses.mean_squared_error(labels=expected_outputs_reshaped, predictions=network_outputs,
                                         weights=loss_mask_reshaped)
+
+    if DEBUG:
+        loss = tf.Print(loss, message="Sequence length: ", data=[tf.reduce_sum(loss_mask, axis=[1, 2])],
+                        summarize=BATCH_SIZE)
+        loss = tf.Print(loss, message="Predictions: ", data=[network_outputs], summarize=BATCH_SIZE)
+        loss = tf.Print(loss, message="Expected: ", data=[expected_outputs_reshaped], summarize=BATCH_SIZE)
 
     return loss, finalstate
 
