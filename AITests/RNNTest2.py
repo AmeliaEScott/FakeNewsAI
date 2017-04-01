@@ -330,9 +330,7 @@ print("Done loading language model")
 # This is how we save files to disk
 saver = tf.train.Saver()
 
-config = tf.ConfigProto()
-config.gpu_options.soft_placement = True
-with tf.Session(config=config) as session:
+with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as session:
     # The weights and biases for the final output layer are initialized randomly, but the internal
     # weights and biases within the RNN are not. So we need to do this to initialize them.
     try:
