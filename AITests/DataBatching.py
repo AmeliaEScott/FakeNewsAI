@@ -74,7 +74,9 @@ def getbatches(batchsize):
         cursor.execute("SELECT an.content, s.valid FROM articles_normalized an JOIN sources s ON an.source=s.url "
                        "WHERE id = ANY(%s)", (ids,))
         # "yield" is what makes this function a generator, so you can iterate over it using "for ... in"
-        yield cursor.fetchmany(batchsize)
+        batch = cursor.fetchmany(batchsize)
+        if len(batch) == batchsize:
+            yield cursor.fetchmany(batchsize)
 
 
 if __name__ == "__main__":
