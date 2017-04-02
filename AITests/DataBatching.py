@@ -76,7 +76,7 @@ def getbatches(batchsize):
         # "yield" is what makes this function a generator, so you can iterate over it using "for ... in"
         batch = cursor.fetchmany(batchsize)
         if len(batch) == batchsize:
-            yield cursor.fetchmany(batchsize)
+            yield batch
 
 
 if __name__ == "__main__":
