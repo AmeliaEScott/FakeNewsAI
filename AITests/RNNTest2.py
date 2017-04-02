@@ -56,7 +56,7 @@ DEBUG = True
 WORDS_INPUT_AT_ONCE = 1
 
 # Size of state to remember between iterations within one article
-STATE_SIZE = 30
+STATE_SIZE = 3000
 
 # Number of GPUs on the target machine. Can be 0
 NUM_GPUS = 0
@@ -69,7 +69,7 @@ VARIABLE_SCOPE = "fakenewsvariablescope"
 # The learning rate is a constant for how quickly it should learn.
 # Too high, and it could overshoot and oscillate around wildly. Too low,
 # and it'll just take forever. I have no idea how to find the right value.
-LEARNING_RATE = 0.3
+LEARNING_RATE = 0.0001
 
 
 def buildtower(networkinput, initial_state, initial_hidden_state, expected_outputs, loss_mask):
