@@ -69,7 +69,7 @@ VARIABLE_SCOPE = "fakenewsvariablescope"
 # The learning rate is a constant for how quickly it should learn.
 # Too high, and it could overshoot and oscillate around wildly. Too low,
 # and it'll just take forever. I have no idea how to find the right value.
-LEARNING_RATE = 0.0001
+LEARNING_RATE = 0.0005
 
 
 def buildtower(networkinput, initial_state, initial_hidden_state, expected_outputs, loss_mask):
