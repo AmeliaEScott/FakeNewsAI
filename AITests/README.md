@@ -23,3 +23,9 @@ Put it right here in the AITests folder. Make sure to unzip it, and name it exac
 (This is important because these scripts will have to reference this file by name)
 
 Do **not** commit this file to the repo. It's 1.6 gigabytes.
+
+### Variables
+
+The file variables.zip on Google Drive contains the saved variables from 25 epochs of training with 88 thousand 
+articles (They aren't in the repo because the file is 190MB). The loss was about 0.075 in the end. 
+This file will be  used to load the neural net for the final product.
