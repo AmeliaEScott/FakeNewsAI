@@ -28,6 +28,10 @@ BATCH_SIZE = 10
 # If below, then false.
 TRUE_THRESHOLD = 0.51
 
+# If true, then the output is averaged for every word.
+# If false, only the output at the last word is considered.
+AVERAGE = True
+
 dir = os.path.dirname(__file__)
 configpath = os.path.join(dir, "../dbsettings.json")
 try:
@@ -123,8 +127,18 @@ with tf.Session() as session:
     saver.restore(session, VARIABLE_SAVE_FILE)
 
     articlecount = 0
-    numright = 0
-    numwrong = 0
+
+    # Number of articles correctly identified as true
+    truepositives = 0
+
+    # Number of articles incorrectly identified as true
+    falsepositives = 0
+
+    # Number of articles correctly identified as false
+    truenegatives = 0
+
+    # Number of articles incorrectly identified as false
+    falsenegatives = 0
 
     for input_values, numwords, valid in getdata(model):
         output_results = session.run([network_outputs], feed_dict={
@@ -138,13 +152,24 @@ with tf.Session() as session:
         for i in range(0, len(valid)):
             articlecount += 1
             correctanswer = valid[i]
-            # TODO: Change this to an average
-            actualanswer = output_results[0][i][-1]
-            if (correctanswer and actualanswer > TRUE_THRESHOLD) \
-                    or (not correctanswer and actualanswer < TRUE_THRESHOLD):
-                numright += 1
+            if AVERAGE:
+                actualanswer = sum(output_results[0][i][0:numwords[i]]) / numwords[i]
             else:
-                numwrong += 1
+                actualanswer = output_results[0][i][-1]
+
+            if correctanswer:
+                if actualanswer > TRUE_THRESHOLD:
+                    truepositives += 1
+                else:
+                    falsenegatives += 1
+            else:
+                if actualanswer < TRUE_THRESHOLD:
+                    truenegatives += 1
+                else:
+                    falsepositives += 1
 
         print("So far, it's gotten %d right out of %d total. That's %.1f%% correct."
-              % (numright, articlecount, (numright / articlecount) * 100))
+              % (truepositives + truenegatives, articlecount, ((truepositives + truenegatives) / articlecount) * 100))
+        print("%.1f%% true positives, %.1f%% true negatives, %.1f%% false positives, %.1f%% false negatives."
+              % ((truepositives / articlecount) * 100, (truenegatives / articlecount) * 100,
+                 (falsepositives / articlecount) * 100, (falsenegatives / articlecount) * 100))
