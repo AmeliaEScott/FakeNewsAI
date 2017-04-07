@@ -1,5 +1,7 @@
 from django.conf.urls import url
 from . import views
+from django.conf import settings
+from django.conf.urls.static import static
 
 """
 This fils is responsible for mapping URLs to Views.
@@ -16,5 +18,7 @@ Maps the URL 'http://website.com/' to the function testview in the python file v
 """
 
 urlpatterns = [
-    url(r'^', views.testview)
+    url(r'^/?$', views.index),
+    url(r'^/text/?$', views.testview),
+    url(r'^judgearticle/?', views.judgearticleview)
 ]

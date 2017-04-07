@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Article Results</title>
+</head>
+<body>
+
+<h4>Results for article {{ url }}</h4>
+
+<script type="application/javascript">
+    "use strict";
+    var url = "{{ url | escapejs }}";
+    var content = "{{ content | escapejs }}";
+    var verdict = {% if verdict %} true {% else %} false {% endif %};
+    var score = {{ score }};
+    var word_scores = [
+        {% for word_score in word_scores %}
+        {{ word_score }},
+        {% endfor %}
+    ];
+</script>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<script type="application/javascript" src="static/FakeNewsApp/judgearticle.js"></script>
+
+</body>
+</html>
