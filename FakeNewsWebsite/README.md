@@ -11,7 +11,6 @@ The following libraries need to be installed using pip:
  - `gensim`
  - `tensorflow`
  - `newspaper3k`
- - `psycopg2`
  - `django`
  
 Next, the language model needs to be downloaded 

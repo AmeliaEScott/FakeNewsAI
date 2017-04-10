@@ -49,7 +49,7 @@ def judgearticle(url):
     if text is None:
         return None
 
-    textvector, numwords = texttovector(text)
+    numwords, textvector = texttovector(text)
     scores = scorearticle(textvector=textvector, numwords=numwords)
 
     return {
