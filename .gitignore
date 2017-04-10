@@ -105,3 +105,5 @@ AITests/GoogleNews-vectors-negative300.bin
 
 # Don't commit variable checkpoints. They're LARGE
 AITests/VariableCheckpoints/
+FakeNewsWebsite/FakeNewsApp/VariableCheckpoints/
+FakeNewsWebsite/FakeNewsApp/GoogleNews-vectors-negative300.bin

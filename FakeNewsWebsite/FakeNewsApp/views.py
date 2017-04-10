@@ -1,8 +1,11 @@
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 import random
+from .articleutils import *
 
 # Create your views here.
+
+TRUE_THRESHOLD = 0.51
 
 """
 In Django, a 'view' is a python function that is given the HTTP request that was sent to the server,
@@ -39,13 +42,20 @@ def judgearticle(url):
     getting a result.
     :param url: URL of the article to judge
     :return: A python dict containing 'url', 'verdict' (True or False), 'score' (0.0 - 1.0), 'content' (article text),
-             'word_scores' (List containing score for each word of the article)
+             'word_scores' (List containing score for each word of the article),
+             or None if there was an error
     """
+    text = getarticletext(url)
+    if text is None:
+        return None
+
+    textvector, numwords = texttovector(text)
+    scores = scorearticle(textvector=textvector, numwords=numwords)
 
     return {
         'url': url,
-        'verdict': True,
-        'score': 0.3,
-        'content': 'This is some long string that contains the text of the article.',
-        'word_scores': [0.1, 0.9, 0.886, 0.1023, 0.5]
+        'verdict': scores[-1] > TRUE_THRESHOLD,
+        'score': scores[-1],
+        'content': text,
+        'word_scores': scores
     }

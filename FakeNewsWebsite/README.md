@@ -14,6 +14,15 @@ The following libraries need to be installed using pip:
  - `psycopg2`
  - `django`
  
+Next, the language model needs to be downloaded 
+from [here](https://docs.google.com/file/d/0B7XkCwpI5KDYaDBDQm1tZGNDRHc/edit).
+
+Put this file at `FakeNewsWebsite/FakeNewsApp/GoogleNews-vectors-negative300.bin`.
+(This is important because these scripts will have to reference this file by name)
+
+Finally, the variables must be downloaded from [here](https://drive.google.com/open?id=0BzbcavI-ypX2enlrc2pKVHg4eXM), and
+unzipped into `FakeNewsWebsite/FakeNewsApp/VariableCheckpoints/`
+ 
 #### Running
 
 To run a local test server, simply do `python manage.py runserver`, and visit `http://localhost:8000/`
