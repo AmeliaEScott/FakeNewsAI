@@ -20,5 +20,6 @@ Maps the URL 'http://website.com/' to the function testview in the python file v
 urlpatterns = [
     url(r'^$', views.index),
     url(r'^text/?$', views.testview),
-    url(r'^judgearticle/?', views.judgearticleview)
+    url(r'^judgearticle/?', views.judgearticleview),
+    url(r'^judgetext/?', views.judgetextview),
 ]

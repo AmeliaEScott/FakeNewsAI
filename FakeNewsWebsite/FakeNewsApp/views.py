@@ -36,14 +36,23 @@ def judgearticleview(request):
     if url is None:
         return HttpResponse("No url provided.")
     else:
-        return render(request, "FakeNewsApp/judgearticle.html", context=judgearticle(url))
+        return render(request, "FakeNewsApp/judgearticle.html", context=judgearticle(url=url))
 
 
-def judgearticle(url):
+def judgetextview(request):
+    text = request.POST.get("text", None)
+    if text is None:
+        return HttpResponse("No article text provided.")
+    else:
+        return render(request, "FakeNewsApp/judgearticle.html", context=judgearticle(text=text))
+
+
+def judgearticle(url=None, text=None):
     """
     This function does the heavy lifting of inputting the article to the neural network and
     getting a result.
-    :param url: URL of the article to judge
+    :param url: URL of the article to judge.
+    :param text: If provided, then url will be ignored, and this will be used as the article text.
     :return: A python dict containing 'url', 'verdict' (True or False), 'score' (0.0 - 1.0), 'content' (article text),
              'word_scores' (List containing score for each word of the article),
              or None if there was an error
@@ -56,9 +65,10 @@ def judgearticle(url):
             'content': 'This is a test article. If you are reading this, then debug mode is on.',
             'word_scores': [random.random() for _ in range(0, 15)]
         }
-    text = getarticletext(url)
     if text is None:
-        return None
+        text = getarticletext(url)
+        if text is None:
+            return None
 
     numwords, textvector = texttovector(text)
     scores = scorearticle(textvector=textvector, numwords=numwords)
