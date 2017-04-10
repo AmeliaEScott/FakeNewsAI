@@ -1,7 +1,10 @@
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 import random
-from .articleutils import *
+
+DEBUG = False
+if not DEBUG:
+    from .articleutils import *
 
 # Create your views here.
 
@@ -45,6 +48,14 @@ def judgearticle(url):
              'word_scores' (List containing score for each word of the article),
              or None if there was an error
     """
+    if DEBUG:
+        return {
+            'url': url,
+            'verdict': False,
+            'score': 0.12,
+            'content': 'This is a test article. If you are reading this, then debug mode is on.',
+            'word_scores': [random.random() for _ in range(0, 15)]
+        }
     text = getarticletext(url)
     if text is None:
         return None
