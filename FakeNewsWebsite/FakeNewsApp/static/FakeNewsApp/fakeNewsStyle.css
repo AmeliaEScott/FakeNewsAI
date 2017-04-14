@@ -1,0 +1,70 @@
+body{
+    background-color: lightblue;
+}
+
+.titleBar{
+    background-color: dodgerblue;
+    text-align: center;
+    color: aliceblue;
+    font-size: 40px;
+    font-weight: bold;
+}
+
+.content{
+    background-color: aliceblue;
+    text-align:center;
+}
+
+.zero{
+    background-color: #FF0000;
+}
+
+.one{
+    background-color: #FF3333;
+}
+
+.two{
+    background-color: #FF6666;
+}
+
+.three{
+    background-color: #FF9999;
+}
+
+.four{
+    background-color: #FFCCCC;
+}
+
+.five{
+    background-color: #CCFFCC;
+}
+
+.six{
+    background-color: #99FF99;
+}
+
+.seven{
+    background-color: #66FF66;
+}
+
+.eight{
+    background-color: #33FF33;
+}
+
+.nine{
+    background-color: #00FF00;
+}
+
+.verdict{
+    font-size: 25px;
+}
+
+#trueVerdict{
+    color: #00FF00;
+    font-weight: bold;
+}
+
+#falseVerdict{
+    color: #FF0000;
+    font-weight: bold;
+}

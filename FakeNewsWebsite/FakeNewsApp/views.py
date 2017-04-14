@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 import random
 
-DEBUG = False
+DEBUG = True
 if not DEBUG:
     from .articleutils import *
 

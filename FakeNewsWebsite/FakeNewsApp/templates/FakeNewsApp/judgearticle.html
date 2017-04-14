@@ -3,11 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <title>Article Results</title>
+    <link rel="stylesheet" href="static/FakeNewsApp/fakeNewsStyle.css">
 </head>
 <body>
 
-<h4>Results for article {{ url }}</h4>
+<div class ="titleBar">Team 4 - Fake News Detector</div>
+<div class="content">
+    <div id="finalScore">
+        Final Score:
+    </div>
+    <div class="verdict">
+        Verdict:
+        <span id="trueVerdict">True</span>
+        <span id="falseVerdict">False</span>
+    </div>
+    <div id="progressionContainer">
 
+    </div>
+</div>
 
 <script type="application/javascript">
     "use strict";
@@ -22,8 +35,9 @@
     ];
 </script>
 
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>-->
 <script type="application/javascript" src="static/FakeNewsApp/judgearticle.js"></script>
+
 
 </body>
 </html>

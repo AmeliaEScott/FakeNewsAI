@@ -3,20 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <title>Fake News Detection</title>
+    <link rel="stylesheet" href="../../static/FakeNewsApp/fakeNewsStyle.css">
+
 </head>
 <body>
 
-<form action="/judgearticle" method="get">
-    <input type="url" name="url">
-    <input type="submit">
-</form>
+<div class ="titleBar">Team 4 - Fake News Detector</div>
+<div class="content">
+    <br>
+    <form action="/judgearticle" method="get">
+        <input type="url" name="url">
+        <input type="submit">
+    </form>
 
-<br><br>
+    <br>
 
-<form action="/judgetext" method="post">
-    <input type="text" name="text">
-    <input type="submit">
-</form>
+    <form action="/judgetext" method="post">
+        <input type="text" name="text">
+        <input type="submit">
+    </form>
+
+    <br>
+</div>
 
 </body>
 </html>
