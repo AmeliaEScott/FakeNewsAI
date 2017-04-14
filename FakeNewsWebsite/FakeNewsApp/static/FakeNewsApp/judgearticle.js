@@ -11,19 +11,23 @@ Contains the code for rendering article results.
 //     alert("Document is ready!");
 // });
 
+//move these calls into the ready function
 this.showFinalScore();
 this.showVerdict();
 this.computeProgressionClasses();
 
+//displays the final score
 function showFinalScore(){
     document.getElementById("finalScore").innerHTML += score;
 }
 
+//determines which verdict to show
 function showVerdict(){
     document.getElementById("trueVerdict").hidden = !verdict;
     document.getElementById("falseVerdict").hidden = verdict;
 }
 
+//processes each content word and gives it a style class depending on its word_score
 function computeProgressionClasses(){
     var contentArray = content.split(" ");
     for(var i = 0; i < word_scores.length; i++){

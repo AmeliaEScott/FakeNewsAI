@@ -11,6 +11,7 @@ body{
 }
 
 .content{
+    padding: 20px;
     background-color: aliceblue;
     text-align:center;
 }
@@ -57,6 +58,7 @@ body{
 
 .verdict{
     font-size: 25px;
+    margin: 15px 0px;
 }
 
 #trueVerdict{
