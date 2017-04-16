@@ -5,16 +5,11 @@ Contains the code for rendering article results.
 // This makes Javascript run in strict mode, which adds some restrictions that make it generally more sane.
 "use strict";
 
-// $(document).ready(function(){
-//     // This bit of code is run once the entire document has been loaded and rendered.
-//     // Any code that depends on inserting stuff into the HTML shouldn't be run before the document is ready.
-//     alert("Document is ready!");
-// });
-
-//move these calls into the ready function
-this.showFinalScore();
-this.showVerdict();
-this.computeProgressionClasses();
+$(document).ready(function(){
+    showFinalScore();
+    showVerdict();
+    computeProgressionClasses();
+});
 
 //displays the final score
 function showFinalScore(){
@@ -29,7 +24,7 @@ function showVerdict(){
 
 //processes each content word and gives it a style class depending on its word_score
 function computeProgressionClasses(){
-    var contentArray = content.split(" ");
+    var contentArray = content.split(/\s+/);
     for(var i = 0; i < word_scores.length; i++){
         var wordClass;
 

@@ -132,7 +132,8 @@ def scorearticle(textvector, numwords):
     """
     Inputs the network to the neural net and returns the average of the score.
     :param textvector: Article text converted to its vector representation, as returned by texttovector()
-    :return: A list of numbers representing the cumulative average at each word of the article
+    :return: A list of numbers representing the score at each word of the article, and a single number
+            representing the average score over the entire article.
     """
 
     # results = np.zeros(shape=[numwords])
@@ -149,7 +150,7 @@ def scorearticle(textvector, numwords):
     # results[start:end] = outputsresult
     # state = finalstateresult[0]
     # hiddenstate = finalstateresult[1]
-    return [sum(outputsresult[0:i]) / i for i in range(1, len(outputsresult) + 1)]
+    return outputsresult, sum(outputsresult) / len(outputsresult)
 
 
 print("Initializing TensorFlow graph...")

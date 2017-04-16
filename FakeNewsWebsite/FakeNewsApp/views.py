@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 import random
 
-DEBUG = True
+DEBUG = False
 if not DEBUG:
     from .articleutils import *
 
@@ -71,12 +71,12 @@ def judgearticle(url=None, text=None):
             return None
 
     numwords, textvector = texttovector(text)
-    scores = scorearticle(textvector=textvector, numwords=numwords)
+    scores, averagescore = scorearticle(textvector=textvector, numwords=numwords)
 
     return {
         'url': url,
         'verdict': scores[-1] > TRUE_THRESHOLD,
-        'score': scores[-1],
+        'score': averagescore,
         'content': text,
         'word_scores': scores
     }
