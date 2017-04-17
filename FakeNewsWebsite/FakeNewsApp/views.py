@@ -75,7 +75,7 @@ def judgearticle(url=None, text=None):
 
     return {
         'url': url,
-        'verdict': scores[-1] > TRUE_THRESHOLD,
+        'verdict': averagescore > TRUE_THRESHOLD,
         'score': averagescore,
         'content': text,
         'word_scores': scores
